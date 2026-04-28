@@ -16,7 +16,11 @@ const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 
-app.use(cors());
+// CORS: permitir cualquier origen en desarrollo (incluyendo Codespaces)
+app.use(cors({
+  origin: true,
+  credentials: false,
+}));
 app.use(express.json());
 
 // Health check

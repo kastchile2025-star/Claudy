@@ -4,15 +4,19 @@ import type { Session, ModelInfo, ClaudyConfig } from "../types";
 // Detectar si estamos en GitHub Codespaces
 const isCodespace = window.location.hostname.includes('github.dev');
 
-// En Codespaces, el backend esta en la misma URL pero con puerto 3001
+// En Codespaces, el backend esta en la misma URL base pero con puerto 3001
 // Ejemplo: frontend = xxx-3000.github.dev, backend = xxx-3001.github.dev
-const API_URL = isCodespace
-  ? window.location.origin.replace('-3000.', '-3001.')
-  : '';
+let API_URL = '';
+let WS_URL = `ws://${window.location.host}/ws`;
 
-const WS_URL = isCodespace
-  ? window.location.href.replace('-3000.', '-3001.').replace('https://', 'wss://').replace(/\/$/, '') + '/ws'
-  : `ws://${window.location.host}/ws`;
+if (isCodespace) {
+  const currentUrl = new URL(window.location.href);
+  const hostname = currentUrl.hostname;
+  // Reemplazar -3000. con -3001. en el hostname
+  const backendHostname = hostname.replace('-3000.', '-3001.');
+  API_URL = `https://${backendHostname}`;
+  WS_URL = `wss://${backendHostname}/ws`;
+}
 
 export function useChat() {
   const [sessions, setSessions] = useState<Session[]>([]);
