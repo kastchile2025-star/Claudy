@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { getConfig, saveConfig, refreshConfig } from "./config";
 import { runAgent, listModels } from "./agent";
+import { syncTelegramBot } from "./telegram";
 import {
   createSession,
   getSession,
@@ -38,6 +39,11 @@ app.get("/api/config", (_req, res) => {
       username: config.opencode.username || "opencode",
       passwordConfigured: Boolean(config.opencode.password),
     },
+    telegram: {
+      enabled: config.telegram.enabled,
+      tokenConfigured: Boolean(config.telegram.botToken),
+      allowedChatIds: config.telegram.allowedChatIds,
+    },
     agent: config.agent,
     server: config.server,
   });
@@ -46,6 +52,7 @@ app.get("/api/config", (_req, res) => {
 app.post("/api/config", (req, res) => {
   const updated = saveConfig(req.body);
   refreshConfig();
+  syncTelegramBot();
   res.json(updated);
 });
 
@@ -151,4 +158,5 @@ server.listen(config.server.port, config.server.host, () => {
     `Claudy backend running on http://${config.server.host}:${config.server.port}`
   );
   console.log(`WebSocket on ws://${config.server.host}:${config.server.port}/ws`);
+  syncTelegramBot();
 });

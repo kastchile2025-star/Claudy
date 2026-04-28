@@ -30,6 +30,11 @@ export interface ClaudyConfig {
     username?: string;
     passwordConfigured?: boolean;
   };
+  telegram: {
+    enabled: boolean;
+    tokenConfigured: boolean;
+    allowedChatIds: number[];
+  };
   agent: {
     systemPrompt: string;
     maxTokens: number;

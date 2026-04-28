@@ -13,6 +13,11 @@ export interface ClaudyConfig {
     username?: string;
     password?: string;
   };
+  telegram: {
+    enabled: boolean;
+    botToken: string;
+    allowedChatIds: number[];
+  };
   agent: {
     systemPrompt: string;
     maxTokens: number;
@@ -31,9 +36,19 @@ const DEFAULT_CONFIG: ClaudyConfig = {
   },
   opencode: {
     baseUrl: process.env.OPENCODE_BASE_URL || "http://127.0.0.1:4096",
-    defaultModel: process.env.OPENCODE_MODEL || "anthropic/claude-sonnet-4",
+    defaultModel: process.env.OPENCODE_MODEL || "opencode-go/qwen3.6-plus",
     username: process.env.OPENCODE_SERVER_USERNAME,
     password: process.env.OPENCODE_SERVER_PASSWORD,
+  },
+  telegram: {
+    enabled: process.env.TELEGRAM_BOT_ENABLED === "true",
+    botToken: process.env.TELEGRAM_BOT_TOKEN || "",
+    allowedChatIds: (process.env.TELEGRAM_ALLOWED_CHAT_IDS || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .map(Number)
+      .filter(Number.isFinite),
   },
   agent: {
     systemPrompt:
@@ -60,8 +75,19 @@ export function loadConfig(): ClaudyConfig {
   if (existsSync(configPath)) {
     try {
       const raw = readFileSync(configPath, "utf-8");
-      const parsed = JSON.parse(raw);
-      return { ...DEFAULT_CONFIG, ...parsed };
+      const parsed = JSON.parse(raw) as Partial<ClaudyConfig>;
+      return {
+        openrouter: { ...DEFAULT_CONFIG.openrouter, ...parsed.openrouter },
+        opencode: { ...DEFAULT_CONFIG.opencode, ...parsed.opencode },
+        telegram: {
+          ...DEFAULT_CONFIG.telegram,
+          ...parsed.telegram,
+          allowedChatIds:
+            parsed.telegram?.allowedChatIds || DEFAULT_CONFIG.telegram.allowedChatIds,
+        },
+        agent: { ...DEFAULT_CONFIG.agent, ...parsed.agent },
+        server: { ...DEFAULT_CONFIG.server, ...parsed.server },
+      };
     } catch {
       return DEFAULT_CONFIG;
     }
@@ -75,6 +101,7 @@ export function saveConfig(config: Partial<ClaudyConfig>): ClaudyConfig {
   const updated: ClaudyConfig = {
     openrouter: { ...current.openrouter, ...config.openrouter },
     opencode: { ...current.opencode, ...config.opencode },
+    telegram: { ...current.telegram, ...config.telegram },
     agent: { ...current.agent, ...config.agent },
     server: { ...current.server, ...config.server },
   };

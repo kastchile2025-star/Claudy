@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Save, Server } from "lucide-react";
+import { MessageCircle, Save, Server, X } from "lucide-react";
 import type { ClaudyConfig } from "../types";
 
 interface SettingsProps {
@@ -18,6 +18,11 @@ export function Settings({ config, onClose }: SettingsProps) {
     config?.opencode.username || "opencode"
   );
   const [opencodePassword, setOpencodePassword] = useState("");
+  const [telegramEnabled, setTelegramEnabled] = useState(config?.telegram.enabled || false);
+  const [telegramToken, setTelegramToken] = useState("");
+  const [telegramAllowedChatIds, setTelegramAllowedChatIds] = useState(
+    config?.telegram.allowedChatIds?.join(", ") || ""
+  );
   const [systemPrompt, setSystemPrompt] = useState(config?.agent.systemPrompt || "");
   const [temperature, setTemperature] = useState(config?.agent.temperature || 0.7);
   const [maxTokens, setMaxTokens] = useState(config?.agent.maxTokens || 4096);
@@ -30,6 +35,16 @@ export function Settings({ config, onClose }: SettingsProps) {
         defaultModel: opencodeModel.trim(),
         username: opencodeUsername.trim() || "opencode",
         ...(opencodePassword ? { password: opencodePassword } : {}),
+      },
+      telegram: {
+        enabled: telegramEnabled,
+        allowedChatIds: telegramAllowedChatIds
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean)
+          .map(Number)
+          .filter(Number.isFinite),
+        ...(telegramToken ? { botToken: telegramToken } : {}),
       },
       agent: {
         systemPrompt,
@@ -120,6 +135,51 @@ export function Settings({ config, onClose }: SettingsProps) {
             <p className="text-sm text-gray-500 mt-2">
               Inicia OpenCode aparte con: opencode serve --port 4096 --hostname 127.0.0.1
             </p>
+          </div>
+
+          {/* Telegram */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <MessageCircle size={20} className="text-blue-600" />
+              <h3 className="text-lg font-semibold">Telegram</h3>
+            </div>
+            <div className="space-y-4">
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={telegramEnabled}
+                  onChange={(e) => setTelegramEnabled(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <span className="text-sm font-medium">Activar bot de Telegram</span>
+              </label>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Bot token
+                </label>
+                <input
+                  type="password"
+                  value={telegramToken}
+                  onChange={(e) => setTelegramToken(e.target.value)}
+                  placeholder={config?.telegram.tokenConfigured ? "Ya configurado" : "123456:ABC..."}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Chat IDs permitidos
+                </label>
+                <input
+                  value={telegramAllowedChatIds}
+                  onChange={(e) => setTelegramAllowedChatIds(e.target.value)}
+                  placeholder="Opcional, separados por coma"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-sm text-gray-500 mt-2">
+                  Si lo dejas vacio, Claudy respondera a cualquier usuario que escriba al bot.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Agent Settings */}

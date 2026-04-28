@@ -6,6 +6,7 @@
 
 - Chat web en tiempo real
 - Integracion con **OpenCode** via servidor local
+- Canal opcional de **Telegram Bot**
 - Historial de conversaciones persistente
 - Selector de modelos desde la UI
 - Tool basica de busqueda web
@@ -17,6 +18,7 @@
 - **Backend**: Node.js + Express + WebSocket
 - **Frontend**: React + Tailwind CSS (standalone HTML tambien disponible)
 - **LLM**: OpenCode server (`opencode serve`)
+- **Canales**: Web UI y Telegram Bot API
 - **Storage**: JSON files en ~/.claudy/
 
 ## Opcion 1: GitHub Codespaces (Recomendado - Sin instalar nada)
@@ -85,6 +87,27 @@ en tu navegador (despues de iniciar el backend).
 3. Selecciona diferentes modelos desde el menu superior
 4. Ve a Configuracion (icono de engranaje) para cambiar la URL de OpenCode, modelo o system prompt
 
+## Telegram
+
+Claudy puede responder mensajes desde un bot de Telegram usando polling local.
+
+1. Crea un bot con BotFather y guarda el token de forma privada.
+2. Abre Configuracion en Claudy.
+3. Activa "Telegram".
+4. Pega el bot token.
+5. Opcional pero recomendado: limita los "Chat IDs permitidos" a tu chat personal.
+6. Guarda la configuracion y escribe al bot desde Telegram.
+
+Tambien puedes configurar variables de entorno:
+
+```bash
+TELEGRAM_BOT_ENABLED=true
+TELEGRAM_BOT_TOKEN=123456:ABC...
+TELEGRAM_ALLOWED_CHAT_IDS=123456789
+```
+
+> Importante: no subas el token al repositorio. Claudy lo guarda localmente en `~/.claudy/config.json`.
+
 ## Estructura del Proyecto
 
 ```
@@ -93,6 +116,7 @@ claudy/
 |   |-- src/
 |   |   |-- server.ts        # Servidor Express + WebSocket
 |   |   |-- opencode.ts      # Cliente OpenCode server
+|   |   |-- telegram.ts      # Canal Telegram Bot API
 |   |   |-- agent.ts         # Loop del agente
 |   |   |-- config.ts        # Gestion de configuracion
 |   |   |-- sessions/        # Almacenamiento de sesiones
@@ -110,7 +134,12 @@ Archivo: `~/.claudy/config.json`
 {
   "opencode": {
     "baseUrl": "http://127.0.0.1:4096",
-    "defaultModel": "anthropic/claude-sonnet-4"
+    "defaultModel": "opencode-go/qwen3.6-plus"
+  },
+  "telegram": {
+    "enabled": false,
+    "botToken": "",
+    "allowedChatIds": []
   },
   "agent": {
     "systemPrompt": "Eres Claudy, un asistente de IA personal...",
