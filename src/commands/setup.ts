@@ -3,53 +3,59 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import ora from 'ora';
 import { loadConfig, saveConfig } from '../config.js';
-import { OpenRouterClient } from '../openrouter.js';
+import { OpenCodeClient } from '../opencode.js';
 
 export const setupCommand = new Command('setup')
   .description('Configurar Claudy por primera vez')
   .action(async () => {
     console.log(chalk.cyan.bold('\n🤖 Bienvenido a Claudy Setup\n'));
-    console.log(chalk.gray('Configura tu asistente de IA personal en pocos pasos.\n'));
+    console.log(chalk.gray('Configura tu asistente de IA personal en pocos pasos.'));
+    console.log(chalk.gray('Claudy usa OpenCode local como motor de IA.\n'));
 
     const config = loadConfig();
 
     const answers = await inquirer.prompt([
       {
+        type: 'input',
+        name: 'baseUrl',
+        message: 'URL del servidor OpenCode:',
+        default: config.opencode.baseUrl || 'http://127.0.0.1:4096',
+      },
+      {
+        type: 'input',
+        name: 'username',
+        message: 'Usuario OpenCode (opcional, Enter para "opencode"):',
+        default: config.opencode.username || 'opencode',
+      },
+      {
         type: 'password',
-        name: 'apiKey',
-        message: 'OpenRouter API Key:',
+        name: 'password',
+        message: 'Password OpenCode (vacío si no hay auth):',
         mask: '*',
-        default: config.openrouter.apiKey || undefined,
-        validate: (input: string) => {
-          if (!input || input.length < 10) {
-            return 'API key inválida. Obtén la tuya en https://openrouter.ai/keys';
-          }
-          return true;
-        },
+        default: config.opencode.password || '',
       },
       {
         type: 'list',
         name: 'defaultModel',
         message: 'Modelo predeterminado:',
-        default: config.openrouter.defaultModel,
+        default: config.opencode.defaultModel,
         choices: [
-          { name: 'Claude 3.5 Sonnet (Recomendado)', value: 'anthropic/claude-3.5-sonnet' },
-          { name: 'Claude 3 Opus', value: 'anthropic/claude-3-opus' },
-          { name: 'GPT-4 Turbo', value: 'openai/gpt-4-turbo' },
-          { name: 'GPT-4o', value: 'openai/gpt-4o' },
-          { name: 'Gemini Pro 1.5', value: 'google/gemini-pro-1.5' },
-          { name: 'Llama 3.1 70B', value: 'meta-llama/llama-3.1-70b-instruct' },
+          { name: 'Anthropic: Claude Sonnet 4', value: 'anthropic/claude-sonnet-4' },
+          { name: 'Anthropic: Claude Opus 4', value: 'anthropic/claude-opus-4' },
+          { name: 'Anthropic: Claude 3.5 Sonnet', value: 'anthropic/claude-3-5-sonnet' },
+          { name: 'OpenAI: GPT-4o', value: 'openai/gpt-4o' },
+          { name: 'Google: Gemini 1.5 Pro', value: 'google/gemini-1.5-pro' },
           { name: 'Otro (especificar)', value: 'custom' },
         ],
       },
       {
         type: 'input',
         name: 'customModel',
-        message: 'Especifica el modelo (formato: provider/model):',
+        message: 'Modelo (formato: provider/model):',
         when: (answers) => answers.defaultModel === 'custom',
         validate: (input: string) => {
           if (!input.includes('/')) {
-            return 'Formato inválido. Usa: provider/model (ej: openai/gpt-4)';
+            return 'Formato inválido. Usa: provider/model';
           }
           return true;
         },
@@ -78,22 +84,12 @@ export const setupCommand = new Command('setup')
       },
     ]);
 
-    // Probar conexión
-    const spinner = ora('Probando conexión con OpenRouter...').start();
-    const client = new OpenRouterClient(answers.apiKey);
-    const isConnected = await client.testConnection();
-
-    if (!isConnected) {
-      spinner.fail(chalk.red('No se pudo conectar a OpenRouter. Verifica tu API key.'));
-      process.exit(1);
-    }
-    spinner.succeed(chalk.green('Conexión exitosa con OpenRouter'));
-
-    // Guardar config
     const newConfig = {
       ...config,
-      openrouter: {
-        apiKey: answers.apiKey,
+      opencode: {
+        baseUrl: answers.baseUrl,
+        username: answers.username || 'opencode',
+        password: answers.password,
         defaultModel:
           answers.defaultModel === 'custom'
             ? answers.customModel
@@ -105,6 +101,21 @@ export const setupCommand = new Command('setup')
         maxTokens: answers.maxTokens,
       },
     };
+
+    // Test connection
+    const spinner = ora('Probando conexión con OpenCode...').start();
+    const client = new OpenCodeClient(newConfig.opencode);
+    const ok = await client.testConnection();
+
+    if (!ok) {
+      spinner.warn(
+        chalk.yellow(
+          'No se pudo conectar a OpenCode. Asegúrate de iniciarlo con:\n  opencode serve --port 4096 --hostname 127.0.0.1'
+        )
+      );
+    } else {
+      spinner.succeed(chalk.green('Conexión exitosa con OpenCode'));
+    }
 
     saveConfig(newConfig);
 

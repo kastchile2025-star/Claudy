@@ -7,9 +7,11 @@ const CONFIG_DIR = path.join(os.homedir(), '.claudy');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 const DEFAULT_CONFIG: Config = {
-  openrouter: {
-    apiKey: '',
-    defaultModel: 'anthropic/claude-3.5-sonnet',
+  opencode: {
+    baseUrl: 'http://127.0.0.1:4096',
+    defaultModel: 'anthropic/claude-sonnet-4',
+    username: 'opencode',
+    password: '',
   },
   agent: {
     systemPrompt: 'Eres Claudy, un asistente de IA personal. Eres útil, honesto y seguro.',
@@ -17,7 +19,7 @@ const DEFAULT_CONFIG: Config = {
     temperature: 0.7,
   },
   server: {
-    port: 3000,
+    port: 3001,
     host: '127.0.0.1',
   },
 };
@@ -39,11 +41,10 @@ export function loadConfig(): Config {
   try {
     const content = fs.readFileSync(CONFIG_FILE, 'utf-8');
     const parsed = JSON.parse(content);
-    // Merge profundo con defaults para garantizar todas las claves
     return {
       ...DEFAULT_CONFIG,
       ...parsed,
-      openrouter: { ...DEFAULT_CONFIG.openrouter, ...(parsed.openrouter || {}) },
+      opencode: { ...DEFAULT_CONFIG.opencode, ...(parsed.opencode || {}) },
       agent: { ...DEFAULT_CONFIG.agent, ...(parsed.agent || {}) },
       server: { ...DEFAULT_CONFIG.server, ...(parsed.server || {}) },
     };
@@ -63,7 +64,7 @@ export function updateConfig(updates: Partial<Config>): void {
   const merged = {
     ...config,
     ...updates,
-    openrouter: { ...config.openrouter, ...updates.openrouter },
+    opencode: { ...config.opencode, ...updates.opencode },
     agent: { ...config.agent, ...updates.agent },
     server: { ...config.server, ...updates.server },
   };

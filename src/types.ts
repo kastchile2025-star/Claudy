@@ -1,7 +1,9 @@
 export interface Config {
-  openrouter: {
-    apiKey: string;
+  opencode: {
+    baseUrl: string;
     defaultModel: string;
+    username?: string;
+    password?: string;
   };
   agent: {
     systemPrompt: string;
@@ -28,38 +30,27 @@ export interface Session {
   createdAt: number;
   updatedAt: number;
   messages: Message[];
+  opencodeSessionId?: string;
 }
 
-export interface OpenRouterModel {
+export interface ModelInfo {
   id: string;
   name: string;
   description?: string;
-  pricing?: {
-    prompt: number;
-    completion: number;
-  };
   context_length?: number;
 }
 
-export interface ChatRequest {
-  messages: Array<{ role: string; content: string }>;
-  model: string;
-  max_tokens?: number;
-  temperature?: number;
-  system?: string;
+export interface OpenCodeTextPart {
+  type: 'text';
+  text: string;
 }
 
-export interface ChatResponse {
-  id: string;
-  choices: Array<{
-    message: {
-      content: string;
-      role: string;
+export interface OpenCodeMessageResponse {
+  info?: {
+    error?: {
+      name?: string;
+      data?: { message?: string };
     };
-    finish_reason: string;
-  }>;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
   };
+  parts?: Array<OpenCodeTextPart | { type: string; [key: string]: unknown }>;
 }

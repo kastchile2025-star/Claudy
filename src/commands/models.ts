@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { loadConfig } from '../config.js';
-import { OpenRouterClient } from '../openrouter.js';
+import { loadConfig, saveConfig } from '../config.js';
+import { OpenCodeClient } from '../opencode.js';
 
 export const modelsCommand = new Command('models')
   .description('Gestionar modelos LLM');
@@ -10,23 +10,16 @@ export const modelsCommand = new Command('models')
 modelsCommand
   .command('list')
   .alias('ls')
-  .description('Listar modelos disponibles en OpenRouter')
+  .description('Listar modelos disponibles en OpenCode')
   .option('-s, --search <query>', 'Filtrar por texto')
-  .option('-l, --limit <n>', 'Limitar resultados', '20')
+  .option('-l, --limit <n>', 'Limitar resultados', '50')
   .action(async (options) => {
     const config = loadConfig();
-
-    if (!config.openrouter.apiKey) {
-      console.log(chalk.red('✗ No tienes API key configurada.'));
-      console.log(chalk.yellow('Ejecuta: claudy setup'));
-      process.exit(1);
-    }
-
-    const spinner = ora('Obteniendo modelos...').start();
+    const spinner = ora('Obteniendo modelos desde OpenCode...').start();
 
     try {
-      const client = new OpenRouterClient(config.openrouter.apiKey);
-      let models = await client.getModels();
+      const client = new OpenCodeClient(config.opencode);
+      let models = await client.listModels();
 
       if (options.search) {
         const query = options.search.toLowerCase();
@@ -42,9 +35,16 @@ modelsCommand
 
       spinner.succeed(chalk.green(`${models.length} modelos encontrados`));
 
+      if (models.length === 0) {
+        console.log(chalk.yellow('\nNo hay modelos. Asegúrate de:'));
+        console.log(chalk.gray('  1. Tener OpenCode corriendo'));
+        console.log(chalk.gray('  2. Haber configurado al menos un provider'));
+        return;
+      }
+
       console.log('');
       limited.forEach((model) => {
-        const isDefault = model.id === config.openrouter.defaultModel;
+        const isDefault = model.id === config.opencode.defaultModel;
         const marker = isDefault ? chalk.green(' ★') : '';
         console.log(chalk.yellow(`▸ ${model.id}${marker}`));
         console.log(chalk.gray(`  ${model.name}`));
@@ -52,13 +52,14 @@ modelsCommand
           const desc = model.description.substring(0, 100);
           console.log(chalk.gray(`  ${desc}${model.description.length > 100 ? '...' : ''}`));
         }
+        if (model.context_length) {
+          console.log(chalk.gray(`  Context: ${model.context_length.toLocaleString()} tokens`));
+        }
         console.log('');
       });
 
       if (models.length > limit) {
-        console.log(
-          chalk.gray(`... y ${models.length - limit} más. Usa --limit para ver más.\n`)
-        );
+        console.log(chalk.gray(`... y ${models.length - limit} más. Usa --limit.\n`));
       }
     } catch (error: any) {
       spinner.fail(chalk.red('Error: ' + error.message));
@@ -71,13 +72,14 @@ modelsCommand
   .description('Mostrar modelo actual')
   .action(() => {
     const config = loadConfig();
-    console.log(chalk.cyan('Modelo actual: ') + chalk.yellow(config.openrouter.defaultModel));
+    console.log(chalk.cyan('Modelo actual: ') + chalk.yellow(config.opencode.defaultModel));
+    console.log(chalk.cyan('OpenCode URL:  ') + chalk.yellow(config.opencode.baseUrl));
   });
 
 modelsCommand
   .command('set <model>')
   .description('Establecer modelo predeterminado')
-  .action(async (model: string) => {
+  .action((model: string) => {
     const config = loadConfig();
 
     if (!model.includes('/')) {
@@ -85,10 +87,7 @@ modelsCommand
       process.exit(1);
     }
 
-    config.openrouter.defaultModel = model;
-
-    const { saveConfig } = await import('../config.js');
+    config.opencode.defaultModel = model;
     saveConfig(config);
-
     console.log(chalk.green(`✓ Modelo predeterminado: ${model}`));
   });

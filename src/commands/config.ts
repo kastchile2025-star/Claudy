@@ -26,9 +26,11 @@ configCommand
     console.log(chalk.cyan.bold('\n⚙️  Configuración actual:\n'));
     console.log(chalk.gray('Archivo: ') + getConfigPath());
     console.log('');
-    console.log(chalk.cyan('OpenRouter:'));
-    console.log(`  apiKey: ${config.openrouter.apiKey ? chalk.green('***configurada***') : chalk.red('no configurada')}`);
-    console.log(`  defaultModel: ${chalk.yellow(config.openrouter.defaultModel)}`);
+    console.log(chalk.cyan('OpenCode:'));
+    console.log(`  baseUrl: ${chalk.yellow(config.opencode.baseUrl)}`);
+    console.log(`  defaultModel: ${chalk.yellow(config.opencode.defaultModel)}`);
+    console.log(`  username: ${chalk.gray(config.opencode.username || '(none)')}`);
+    console.log(`  password: ${config.opencode.password ? chalk.green('***configurada***') : chalk.gray('(no auth)')}`);
     console.log('');
     console.log(chalk.cyan('Agent:'));
     console.log(`  systemPrompt: ${chalk.gray(config.agent.systemPrompt.substring(0, 60))}...`);
@@ -40,7 +42,7 @@ configCommand
 configCommand
   .command('set')
   .description('Establecer un valor de configuración')
-  .argument('<key>', 'Clave (ej: agent.temperature)')
+  .argument('<key>', 'Clave (ej: agent.temperature, opencode.baseUrl)')
   .argument('<value>', 'Valor')
   .action((key: string, value: string) => {
     const config = loadConfig();
@@ -71,9 +73,15 @@ configCommand
     const answers = await inquirer.prompt([
       {
         type: 'input',
+        name: 'baseUrl',
+        message: 'OpenCode URL:',
+        default: config.opencode.baseUrl,
+      },
+      {
+        type: 'input',
         name: 'defaultModel',
         message: 'Modelo predeterminado:',
-        default: config.openrouter.defaultModel,
+        default: config.opencode.defaultModel,
       },
       {
         type: 'input',
@@ -95,7 +103,8 @@ configCommand
       },
     ]);
 
-    config.openrouter.defaultModel = answers.defaultModel;
+    config.opencode.baseUrl = answers.baseUrl;
+    config.opencode.defaultModel = answers.defaultModel;
     config.agent.systemPrompt = answers.systemPrompt;
     config.agent.temperature = answers.temperature;
     config.agent.maxTokens = answers.maxTokens;

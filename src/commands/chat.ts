@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import readline from 'readline';
 import { loadConfig } from '../config.js';
-import { OpenRouterClient } from '../openrouter.js';
+import { OpenCodeClient } from '../opencode.js';
 import {
   createSession,
   saveSession,
@@ -21,12 +21,6 @@ export const chatCommand = new Command('chat')
   .option('-n, --new', 'Crear nueva sesión sin preguntar')
   .action(async (options) => {
     const config = loadConfig();
-
-    if (!config.openrouter.apiKey) {
-      console.log(chalk.red('✗ No tienes API key configurada.'));
-      console.log(chalk.yellow('Ejecuta: claudy setup'));
-      process.exit(1);
-    }
 
     let session: Session;
 
@@ -57,27 +51,27 @@ export const chatCommand = new Command('chat')
         ]);
 
         if (action === 'new') {
-          session = await createNewSession(options.model || config.openrouter.defaultModel);
+          session = await createNewSession(options.model || config.opencode.defaultModel);
         } else {
           session = loadSession(action)!;
           console.log(chalk.cyan(`\n📂 Continuando sesión: ${session.name}`));
         }
       } else {
-        session = await createNewSession(options.model || config.openrouter.defaultModel);
+        session = await createNewSession(options.model || config.opencode.defaultModel);
       }
     } else {
-      session = await createNewSession(options.model || config.openrouter.defaultModel);
+      session = await createNewSession(options.model || config.opencode.defaultModel);
     }
 
-    const client = new OpenRouterClient(config.openrouter.apiKey);
+    const client = new OpenCodeClient(config.opencode);
 
     console.log(chalk.gray('\n─────────────────────────────────────────'));
     console.log(chalk.gray(`Modelo: ${session.model}`));
     console.log(chalk.gray(`Sesión: ${session.id.substring(0, 8)}...`));
+    console.log(chalk.gray(`OpenCode: ${config.opencode.baseUrl}`));
     console.log(chalk.gray('Comandos: /exit, /clear, /save, /model, /help'));
     console.log(chalk.gray('─────────────────────────────────────────\n'));
 
-    // Mostrar historial existente
     if (session.messages.length > 0) {
       session.messages.forEach((msg) => {
         if (msg.role === 'user') {
@@ -102,17 +96,14 @@ export const chatCommand = new Command('chat')
           return;
         }
 
-        // Comandos especiales
         if (userInput.startsWith('/')) {
-          const handled = await handleCommand(userInput, session, rl);
+          const handled = await handleCommand(userInput, session);
           if (handled === 'exit') {
             rl.close();
             return;
           }
-          if (handled !== 'continue') {
-            askQuestion();
-            return;
-          }
+          askQuestion();
+          return;
         }
 
         addMessage(session, 'user', userInput);
@@ -120,28 +111,19 @@ export const chatCommand = new Command('chat')
         const spinner = ora({ text: 'Pensando...', color: 'cyan' }).start();
 
         try {
-          const messages = [
-            { role: 'system', content: config.agent.systemPrompt },
-            ...session.messages.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
-          ];
-
-          const response = await client.chat({
-            model: session.model,
-            messages,
-            max_tokens: config.agent.maxTokens,
-            temperature: config.agent.temperature,
-          });
+          const reply = await client.sendMessage(
+            session,
+            userInput,
+            session.model,
+            config.agent.systemPrompt
+          );
 
           spinner.stop();
 
-          const assistantMessage = response.choices[0].message.content;
-          addMessage(session, 'assistant', assistantMessage);
+          addMessage(session, 'assistant', reply);
           saveSession(session);
 
-          console.log(chalk.blue('Claudy: ') + assistantMessage + '\n');
+          console.log(chalk.blue('Claudy: ') + reply + '\n');
         } catch (error: any) {
           spinner.fail(chalk.red('Error: ' + error.message));
         }
@@ -173,9 +155,8 @@ async function createNewSession(model: string): Promise<Session> {
 
 async function handleCommand(
   command: string,
-  session: Session,
-  rl: readline.Interface
-): Promise<'exit' | 'handled' | 'continue'> {
+  session: Session
+): Promise<'exit' | 'handled'> {
   const [cmd, ...args] = command.split(' ');
 
   switch (cmd) {
@@ -195,6 +176,8 @@ async function handleCommand(
     case '/model':
       if (args.length > 0) {
         session.model = args.join(' ');
+        // Cambiar modelo invalida la sesión OpenCode
+        session.opencodeSessionId = undefined;
         saveSession(session);
         console.log(chalk.green(`✓ Modelo cambiado a: ${session.model}`));
       } else {
@@ -203,7 +186,8 @@ async function handleCommand(
       return 'handled';
 
     case '/history':
-      console.log(chalk.gray(`\nMensajes en esta sesión: ${session.messages.length}\n`));
+      console.log(chalk.gray(`\nMensajes: ${session.messages.length}`));
+      console.log(chalk.gray(`OpenCode session: ${session.opencodeSessionId || '(no creada)'}\n`));
       return 'handled';
 
     case '/help':
@@ -212,7 +196,7 @@ async function handleCommand(
       console.log(chalk.gray('  /clear      - Limpiar pantalla'));
       console.log(chalk.gray('  /save       - Guardar sesión'));
       console.log(chalk.gray('  /model <m>  - Cambiar modelo'));
-      console.log(chalk.gray('  /history    - Ver info de sesión'));
+      console.log(chalk.gray('  /history    - Info de sesión'));
       console.log(chalk.gray('  /help       - Mostrar ayuda\n'));
       return 'handled';
 

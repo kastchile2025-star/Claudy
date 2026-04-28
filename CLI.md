@@ -1,6 +1,14 @@
 # Claudy CLI
 
-Interfaz de línea de comandos para Claudy. Usa OpenRouter como proveedor universal de LLMs.
+Interfaz de línea de comandos para Claudy. Usa **OpenCode local** como motor de IA.
+
+## Requisitos previos
+
+Tener OpenCode corriendo localmente:
+
+```bash
+opencode serve --port 4096 --hostname 127.0.0.1
+```
 
 ## Instalación
 
@@ -24,8 +32,9 @@ claudy setup
 ```
 
 Te pedirá:
-- API key de OpenRouter (https://openrouter.ai/keys)
-- Modelo predeterminado
+- URL del servidor OpenCode (default: `http://127.0.0.1:4096`)
+- Usuario y password (si OpenCode tiene auth, opcional)
+- Modelo predeterminado (formato `provider/model`)
 - System prompt
 - Parámetros (temperature, max tokens)
 
@@ -90,7 +99,7 @@ claudy config path                      # Ruta del archivo
 src/
 ├── cli.ts              # Punto de entrada
 ├── config.ts           # Gestión de config
-├── openrouter.ts       # Cliente OpenRouter
+├── opencode.ts         # Cliente OpenCode server
 ├── types.ts            # Tipos TypeScript
 ├── utils.ts            # Sesiones y helpers
 └── commands/
