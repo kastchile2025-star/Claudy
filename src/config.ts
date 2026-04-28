@@ -38,7 +38,15 @@ export function loadConfig(): Config {
 
   try {
     const content = fs.readFileSync(CONFIG_FILE, 'utf-8');
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    // Merge profundo con defaults para garantizar todas las claves
+    return {
+      ...DEFAULT_CONFIG,
+      ...parsed,
+      openrouter: { ...DEFAULT_CONFIG.openrouter, ...(parsed.openrouter || {}) },
+      agent: { ...DEFAULT_CONFIG.agent, ...(parsed.agent || {}) },
+      server: { ...DEFAULT_CONFIG.server, ...(parsed.server || {}) },
+    };
   } catch (error) {
     console.error('Error loading config:', error);
     return DEFAULT_CONFIG;
