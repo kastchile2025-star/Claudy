@@ -68,6 +68,7 @@ const DISABLED_TOOLS = {
   lsp: false,
   skill: false,
 };
+const STALE_SESSION_TIMEOUT_MS = 20_000;
 
 function getAuthHeader(): string | undefined {
   const { username, password } = getConfig().opencode;
@@ -161,24 +162,49 @@ async function ensureOpenCodeSession(session: Session): Promise<string> {
 export async function sendMessageToOpenCode(
   session: Session,
   userMessage: string,
-  model: string
+  model: string,
+  skillContext = ""
 ): Promise<string> {
   const config = getConfig();
-  const sessionId = await ensureOpenCodeSession(session);
   const parsedModel = parseModel(model || config.opencode.defaultModel);
+  const system = skillContext
+    ? `${config.agent.systemPrompt}\n\n${skillContext}`
+    : config.agent.systemPrompt;
 
-  const response = await requestOpenCode<OpenCodeMessageResponse>(
-    `/session/${encodeURIComponent(sessionId)}/message`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        model: parsedModel,
-        system: config.agent.systemPrompt,
-        tools: DISABLED_TOOLS,
-        parts: [{ type: "text", text: userMessage }],
-      }),
-    }
-  );
+  const send = async (timeoutMs?: number) => {
+    const sessionId = await ensureOpenCodeSession(session);
+    const signal =
+      timeoutMs && typeof AbortSignal.timeout === "function"
+        ? AbortSignal.timeout(timeoutMs)
+        : undefined;
+
+    return requestOpenCode<OpenCodeMessageResponse>(
+      `/session/${encodeURIComponent(sessionId)}/message`,
+      {
+        method: "POST",
+        signal,
+        body: JSON.stringify({
+          model: parsedModel,
+          system,
+          tools: DISABLED_TOOLS,
+          parts: [{ type: "text", text: userMessage }],
+        }),
+      }
+    );
+  };
+
+  let response: OpenCodeMessageResponse;
+  const hadOpenCodeSession = Boolean(session.opencodeSessionId);
+  try {
+    response = await send(hadOpenCodeSession ? STALE_SESSION_TIMEOUT_MS : undefined);
+  } catch (error) {
+    // OpenCode keeps sessions in its own process. If it restarts, Claudy can
+    // still have an old opencodeSessionId persisted locally; recreate once.
+    if (!hadOpenCodeSession) throw error;
+    session.opencodeSessionId = undefined;
+    saveSession(session);
+    response = await send();
+  }
 
   return extractAssistantText(response);
 }

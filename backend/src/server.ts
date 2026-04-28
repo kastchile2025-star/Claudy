@@ -5,6 +5,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import { getConfig, saveConfig, refreshConfig } from "./config";
 import { runAgent, listModels } from "./agent";
 import { syncTelegramBot } from "./telegram";
+import { installSkillFromUrl, listSkills, searchSkills } from "./skills";
+import { getMemoryStats, searchMemories } from "./memory";
 import {
   createSession,
   getSession,
@@ -24,15 +26,9 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Health check
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.1.0" });
-});
-
-// Config
-app.get("/api/config", (_req, res) => {
+function publicConfig() {
   const config = getConfig();
-  res.json({
+  return {
     opencode: {
       baseUrl: config.opencode.baseUrl,
       defaultModel: config.opencode.defaultModel,
@@ -44,16 +40,29 @@ app.get("/api/config", (_req, res) => {
       tokenConfigured: Boolean(config.telegram.botToken),
       allowedChatIds: config.telegram.allowedChatIds,
     },
+    skills: config.skills,
+    memory: config.memory,
+    tools: config.tools,
     agent: config.agent,
     server: config.server,
-  });
+  };
+}
+
+// Health check
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok", version: "0.1.0" });
+});
+
+// Config
+app.get("/api/config", (_req, res) => {
+  res.json(publicConfig());
 });
 
 app.post("/api/config", (req, res) => {
-  const updated = saveConfig(req.body);
+  saveConfig(req.body);
   refreshConfig();
   syncTelegramBot();
-  res.json(updated);
+  res.json(publicConfig());
 });
 
 // Models
@@ -64,6 +73,43 @@ app.get("/api/models", async (_req, res) => {
   } catch (error) {
     res.status(500).json({ error: String(error) });
   }
+});
+
+// Skills
+app.get("/api/skills", (_req, res) => {
+  res.json(listSkills());
+});
+
+app.get("/api/skills/search", (req, res) => {
+  const query = String(req.query.q || "");
+  res.json(searchSkills(query).map(({ content: _content, ...skill }) => skill));
+});
+
+app.post("/api/skills/install", async (req, res) => {
+  try {
+    const url = String(req.body.url || "");
+    if (!url) {
+      res.status(400).json({ error: "URL requerida" });
+      return;
+    }
+
+    const skill = await installSkillFromUrl(url);
+    res.json(skill);
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// Memory
+app.get("/api/memory", (_req, res) => {
+  res.json(getMemoryStats());
+});
+
+app.get("/api/memory/search", (req, res) => {
+  const query = String(req.query.q || "");
+  res.json(searchMemories(query).map(({ vector: _vector, ...memory }) => memory));
 });
 
 // Sessions

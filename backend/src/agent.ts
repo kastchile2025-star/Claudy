@@ -1,5 +1,8 @@
 import { sendMessageToOpenCode, listModels } from "./opencode";
 import { getSession, addMessage } from "./sessions/store";
+import { buildSkillsContext } from "./skills";
+import { buildMemoryContext, rememberMessage } from "./memory";
+import { runLocalToolCommand, toolsSystemContext } from "./toolrunner";
 import type { Message } from "./sessions/types";
 
 export async function runAgent(
@@ -21,15 +24,39 @@ export async function runAgent(
     timestamp: Date.now(),
   };
   addMessage(sessionId, userMsg);
+  rememberMessage(sessionId, "user", userMessage);
 
   // Run LLM
   const currentSession = getSession(sessionId)!;
 
   try {
+    const toolResult = await runLocalToolCommand(userMessage);
+    if (toolResult.handled) {
+      const content = toolResult.content || "";
+      onChunk(content);
+      const toolMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+      };
+      addMessage(sessionId, toolMsg);
+      return { success: true };
+    }
+
+    const extraContext = [
+      buildSkillsContext(userMessage),
+      buildMemoryContext(userMessage),
+      toolsSystemContext(),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
     const assistantContent = await sendMessageToOpenCode(
       currentSession,
       userMessage,
-      model
+      model,
+      extraContext
     );
 
     onChunk(assistantContent);
@@ -42,6 +69,7 @@ export async function runAgent(
       timestamp: Date.now(),
     };
     addMessage(sessionId, finalAssistantMsg);
+    rememberMessage(sessionId, "assistant", assistantContent);
 
     return { success: true };
   } catch (error) {

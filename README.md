@@ -1,47 +1,47 @@
 # Claudy - Asistente de IA Personal
 
-**Claudy** es un fork simplificado de [OpenClaw](https://github.com/openclaw/openclaw), un asistente de IA personal que corre localmente en tu maquina.
+**Claudy** es un fork simplificado de [OpenClaw](https://github.com/openclaw/openclaw), un asistente de IA personal que corre localmente en tu maquina y se conecta a OpenCode.
 
-## Caracteristicas (MVP)
+## Caracteristicas
 
 - Chat web en tiempo real
 - Integracion con **OpenCode** via servidor local
-- Canal opcional de **Telegram Bot**
+- Canal opcional de **Telegram Bot** con polling local
+- Tools locales por comandos slash: `/read`, `/write`, `/exec`, `/browse`
+- Sistema de **skills** en Markdown (`SKILL.md`)
+- Memoria vectorial local en `~/.claudy/memory.json`
+- Voice en navegador: dictado STT y lectura TTS
 - Historial de conversaciones persistente
 - Selector de modelos desde la UI
-- Tool basica de busqueda web
-- Configuracion editable
+- Configuracion editable desde la app
 - Interfaz moderna y responsive
 
 ## Stack Tecnologico
 
-- **Backend**: Node.js + Express + WebSocket
-- **Frontend**: React + Tailwind CSS (standalone HTML tambien disponible)
+- **Backend**: Node.js/Bun + Express + WebSocket
+- **Frontend**: React + Vite + Tailwind CSS
 - **LLM**: OpenCode server (`opencode serve`)
 - **Canales**: Web UI y Telegram Bot API
-- **Storage**: JSON files en ~/.claudy/
+- **Storage**: JSON files en `~/.claudy/`
 
-## Opcion 1: GitHub Codespaces (Recomendado - Sin instalar nada)
+## Opcion 1: GitHub Codespaces
 
 La forma mas facil de probar Claudy es en un **GitHub Codespace**. No necesitas instalar nada en tu computadora.
 
-### Pasos:
-
 1. Ve al repo: https://github.com/kastchile2025-star/Claudy
-2. Haz clic en el boton verde **<> Code** → **Codespaces** → **Create codespace on main**
-3. Espera 1-2 minutos a que se configure (instala dependencias automaticamente)
-4. Cuando termine, aparecera una notificacion: **"Your application running on port 3000 is available"**
-5. Haz clic en **Open in Browser** 🎉
-6. Listo! Ya puedes chatear con Claudy
+2. Haz clic en el boton verde **Code** y luego **Codespaces**.
+3. Crea un codespace desde `main`.
+4. Espera 1-2 minutos a que se configure.
+5. Abre el puerto `3000` en el navegador.
 
-> **Nota**: El backend (puerto 3001) y frontend (puerto 3000) se inician automaticamente. Tambien puedes hacer clic en los puertos en la pestaña "Ports" (abajo) y seleccionar "Open in Browser".
-
----
+> Nota: el backend usa el puerto `3001` y el frontend usa el puerto `3000`.
 
 ## Opcion 2: Instalacion Local
 
 ### Requisitos
+
 - Node.js 20+ o Bun
+- OpenCode CLI disponible en tu maquina
 
 ### Pasos
 
@@ -50,7 +50,7 @@ La forma mas facil de probar Claudy es en un **GitHub Codespace**. No necesitas 
 git clone https://github.com/kastchile2025-star/Claudy.git
 cd Claudy
 
-# 2. Entrar al backend e instalar
+# 2. Instalar backend
 cd backend
 bun install
 
@@ -60,32 +60,74 @@ opencode serve --port 4096 --hostname 127.0.0.1
 # 4. Iniciar backend
 bun run src/server.ts
 
-# 5. En otra terminal, entrar al frontend
+# 5. Instalar frontend en otra terminal
 cd ../frontend
 bun install
 
 # 6. Iniciar frontend
 bun run dev
 
-# 7. Abrir http://localhost:3000
+# 7. Abrir la app
+# http://localhost:3000
 ```
-
-### Opcion rapida (HTML standalone)
-
-Si no quieres compilar el frontend, simplemente abre:
-
-```
-claudy/frontend/public/index.html
-```
-
-en tu navegador (despues de iniciar el backend).
 
 ## Uso
 
-1. Abre http://localhost:3000 en tu navegador
-2. Escribe un mensaje para comenzar
-3. Selecciona diferentes modelos desde el menu superior
-4. Ve a Configuracion (icono de engranaje) para cambiar la URL de OpenCode, modelo o system prompt
+1. Abre http://localhost:3000 en tu navegador.
+2. Escribe un mensaje para comenzar.
+3. Selecciona diferentes modelos desde el menu superior.
+4. Ve a Configuracion para cambiar OpenCode, Telegram, tools, skills, memoria o prompt del agente.
+
+## Tools Locales
+
+Claudy incluye tools invocadas manualmente por comandos slash. Por seguridad, `/write` y `/exec` vienen apagados por defecto.
+
+| Comando | Funcion |
+| --- | --- |
+| `/read README.md` | Lee un archivo dentro del directorio permitido. |
+| `/browse https://example.com` | Descarga texto basico de una pagina web. |
+| `/write notas/demo.txt\ncontenido` | Escribe un archivo. Requiere activar escritura. |
+| `/exec bun --version` | Ejecuta un comando. Requiere activar ejecucion. |
+| `/skills` | Lista skills instalados. |
+| `/skill_search telegram` | Busca skills instalados. |
+| `/skill_install URL` | Instala un `SKILL.md` desde una URL. |
+
+Puedes configurar el directorio permitido desde la UI o con `CLAUDY_TOOLS_ROOT`. Las tools de archivos y ejecucion no pueden salir de ese directorio.
+
+## Skills
+
+Claudy puede cargar habilidades desde archivos `SKILL.md`.
+
+- Los skills del proyecto viven en `skills/<nombre>/SKILL.md`.
+- Los skills instalados por el usuario se guardan en `~/.claudy/skills/<nombre>/SKILL.md`.
+- Cuando escribes un mensaje, Claudy busca skills relevantes y los agrega como contexto del agente.
+- Desde Configuracion puedes buscar skills instalados o instalar uno pegando una URL a `SKILL.md`.
+
+Ejemplo de URL compatible:
+
+```text
+https://github.com/vercel-labs/skills/blob/main/skills/find-skills/SKILL.md
+```
+
+Los skills son instrucciones en Markdown. Instala solo skills de fuentes confiables.
+
+## Memoria Vectorial
+
+Claudy guarda recuerdos locales de mensajes utiles y los recupera por similitud para dar contexto en futuras respuestas.
+
+- Archivo local: `~/.claudy/memory.json`
+- No usa un servicio externo de embeddings.
+- Usa un vector hash local liviano para busqueda semantica aproximada.
+- Puedes activar/desactivar memoria y cambiar limites desde Configuracion.
+
+## Voice
+
+La interfaz web incluye voz usando APIs del navegador:
+
+- **STT**: boton de microfono para dictar mensajes.
+- **TTS**: boton de volumen para leer respuestas del asistente.
+
+La disponibilidad depende del navegador y sus permisos de microfono. En Chrome/Edge suele funcionar mejor.
 
 ## Telegram
 
@@ -93,9 +135,9 @@ Claudy puede responder mensajes desde un bot de Telegram usando polling local.
 
 1. Crea un bot con BotFather y guarda el token de forma privada.
 2. Abre Configuracion en Claudy.
-3. Activa "Telegram".
+3. Activa Telegram.
 4. Pega el bot token.
-5. Opcional pero recomendado: limita los "Chat IDs permitidos" a tu chat personal.
+5. Recomendado: limita los Chat IDs permitidos a tu chat personal.
 6. Guarda la configuracion y escribe al bot desde Telegram.
 
 Tambien puedes configurar variables de entorno:
@@ -108,27 +150,9 @@ TELEGRAM_ALLOWED_CHAT_IDS=123456789
 
 > Importante: no subas el token al repositorio. Claudy lo guarda localmente en `~/.claudy/config.json`.
 
-## Estructura del Proyecto
-
-```
-claudy/
-|-- backend/
-|   |-- src/
-|   |   |-- server.ts        # Servidor Express + WebSocket
-|   |   |-- opencode.ts      # Cliente OpenCode server
-|   |   |-- telegram.ts      # Canal Telegram Bot API
-|   |   |-- agent.ts         # Loop del agente
-|   |   |-- config.ts        # Gestion de configuracion
-|   |   |-- sessions/        # Almacenamiento de sesiones
-|   |   |-- tools/           # Herramientas (web_search)
-|-- frontend/
-|   |-- src/                 # React app (Vite)
-|   |-- public/index.html    # Version standalone HTML
-```
-
 ## Configuracion
 
-Archivo: `~/.claudy/config.json`
+Archivo local: `~/.claudy/config.json`
 
 ```json
 {
@@ -140,6 +164,25 @@ Archivo: `~/.claudy/config.json`
     "enabled": false,
     "botToken": "",
     "allowedChatIds": []
+  },
+  "skills": {
+    "enabled": true,
+    "maxContextSkills": 3
+  },
+  "memory": {
+    "enabled": true,
+    "maxResults": 5,
+    "maxEntries": 500
+  },
+  "tools": {
+    "enabled": true,
+    "allowRead": true,
+    "allowWrite": false,
+    "allowExec": false,
+    "allowBrowser": true,
+    "allowedRoot": "..",
+    "commandTimeoutMs": 10000,
+    "maxOutputChars": 20000
   },
   "agent": {
     "systemPrompt": "Eres Claudy, un asistente de IA personal...",
@@ -153,13 +196,58 @@ Archivo: `~/.claudy/config.json`
 }
 ```
 
-## Proximos Pasos
+Variables utiles en `.env`:
 
-- [ ] Multi-canal (Telegram, Discord)
-- [ ] Mas tools (exec, read, write, browser)
-- [ ] Sistema de skills basado en markdown
-- [ ] Memoria vectorial
-- [ ] Voice (STT + TTS)
+```bash
+CLAUDY_SKILLS_ENABLED=true
+CLAUDY_MAX_CONTEXT_SKILLS=3
+CLAUDY_MEMORY_ENABLED=true
+CLAUDY_MEMORY_MAX_RESULTS=5
+CLAUDY_MEMORY_MAX_ENTRIES=500
+CLAUDY_TOOLS_ENABLED=true
+CLAUDY_TOOL_READ=true
+CLAUDY_TOOL_BROWSER=true
+CLAUDY_TOOL_WRITE=false
+CLAUDY_TOOL_EXEC=false
+CLAUDY_TOOLS_ROOT=..
+CLAUDY_TOOL_TIMEOUT_MS=10000
+CLAUDY_TOOL_MAX_OUTPUT_CHARS=20000
+```
+
+## Estructura del Proyecto
+
+```text
+claudy/
+|-- backend/
+|   |-- src/
+|   |   |-- server.ts        # Servidor Express + WebSocket
+|   |   |-- opencode.ts      # Cliente OpenCode server
+|   |   |-- telegram.ts      # Canal Telegram Bot API
+|   |   |-- skills.ts        # Loader y buscador de skills
+|   |   |-- memory.ts        # Memoria vectorial local
+|   |   |-- toolrunner.ts    # Tools slash locales
+|   |   |-- agent.ts         # Loop del agente
+|   |   |-- config.ts        # Gestion de configuracion
+|   |   |-- sessions/        # Almacenamiento de sesiones
+|   |   |-- tools/           # Herramientas legacy
+|-- frontend/
+|   |-- src/                 # React app (Vite)
+|   |-- public/index.html    # Version standalone HTML
+|-- skills/
+|   |-- find-skills/
+|   |   |-- SKILL.md          # Skill base para descubrir habilidades
+```
+
+## Roadmap
+
+- [x] Telegram polling
+- [x] Tools: exec, read, write, browser
+- [x] Sistema de skills basado en Markdown
+- [x] Memoria vectorial local
+- [x] Voice: STT + TTS
+- [ ] Discord u otros canales
+- [ ] Embeddings externos opcionales
+- [ ] Permisos avanzados por tool
 
 ## Creditos
 

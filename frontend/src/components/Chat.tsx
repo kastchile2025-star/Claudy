@@ -1,4 +1,4 @@
-import { Send, Sparkles } from "lucide-react";
+import { Mic, Send, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import type { Message } from "../types";
 import { MessageBubble } from "./Message";
@@ -11,7 +11,13 @@ interface ChatProps {
 
 export function Chat({ messages, isLoading, onSendMessage }: ChatProps) {
   const [input, setInput] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(
+    () => localStorage.getItem("claudy.voice.enabled") === "true"
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<unknown>(null);
+  const spokenMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -19,11 +25,74 @@ export function Chat({ messages, isLoading, onSendMessage }: ChatProps) {
     }
   }, [messages]);
 
+  useEffect(() => {
+    localStorage.setItem("claudy.voice.enabled", String(voiceEnabled));
+  }, [voiceEnabled]);
+
+  useEffect(() => {
+    if (!voiceEnabled || isLoading) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant" || spokenMessageIdRef.current === last.id) return;
+    if (!("speechSynthesis" in window)) return;
+
+    spokenMessageIdRef.current = last.id;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(last.content);
+    utterance.lang = "es-ES";
+    window.speechSynthesis.speak(utterance);
+  }, [messages, isLoading, voiceEnabled]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
     onSendMessage(input.trim());
     setInput("");
+  };
+
+  const startVoiceInput = () => {
+    const SpeechRecognition =
+      (window as unknown as { SpeechRecognition?: new () => unknown }).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: new () => unknown }).webkitSpeechRecognition;
+
+    if (!SpeechRecognition || isRecording) return;
+
+    const recognition = new SpeechRecognition() as {
+      lang: string;
+      interimResults: boolean;
+      continuous: boolean;
+      start: () => void;
+      stop: () => void;
+      onresult: ((event: unknown) => void) | null;
+      onend: (() => void) | null;
+      onerror: (() => void) | null;
+    };
+
+    recognition.lang = "es-ES";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = (event: unknown) => {
+      const resultEvent = event as {
+        results: ArrayLike<ArrayLike<{ transcript: string }>>;
+      };
+      const transcript = resultEvent.results[0]?.[0]?.transcript || "";
+      if (transcript) {
+        setInput((current) => `${current}${current ? " " : ""}${transcript}`);
+      }
+    };
+    recognition.onend = () => setIsRecording(false);
+    recognition.onerror = () => setIsRecording(false);
+    recognitionRef.current = recognition;
+    setIsRecording(true);
+    recognition.start();
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      (recognitionRef.current as { stop?: () => void } | null)?.stop?.();
+      setIsRecording(false);
+      return;
+    }
+    startVoiceInput();
   };
 
   return (
@@ -96,6 +165,26 @@ export function Chat({ messages, isLoading, onSendMessage }: ChatProps) {
               style={{ minHeight: "48px" }}
             />
           </div>
+          <button
+            type="button"
+            onClick={() => setVoiceEnabled((value) => !value)}
+            className="p-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-xl transition-colors"
+            title={voiceEnabled ? "Desactivar lectura por voz" : "Activar lectura por voz"}
+          >
+            {voiceEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+          </button>
+          <button
+            type="button"
+            onClick={toggleRecording}
+            className={`p-3 rounded-xl transition-colors ${
+              isRecording
+                ? "bg-red-500 text-white"
+                : "bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
+            }`}
+            title="Dictar mensaje"
+          >
+            <Mic size={20} />
+          </button>
           <button
             type="submit"
             disabled={!input.trim() || isLoading}

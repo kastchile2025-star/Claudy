@@ -35,6 +35,25 @@ export interface ClaudyConfig {
     tokenConfigured: boolean;
     allowedChatIds: number[];
   };
+  skills: {
+    enabled: boolean;
+    maxContextSkills: number;
+  };
+  memory: {
+    enabled: boolean;
+    maxResults: number;
+    maxEntries: number;
+  };
+  tools: {
+    enabled: boolean;
+    allowRead: boolean;
+    allowWrite: boolean;
+    allowExec: boolean;
+    allowBrowser: boolean;
+    allowedRoot: string;
+    commandTimeoutMs: number;
+    maxOutputChars: number;
+  };
   agent: {
     systemPrompt: string;
     maxTokens: number;
@@ -44,4 +63,17 @@ export interface ClaudyConfig {
     port: number;
     host: string;
   };
+}
+
+export interface MemoryStats {
+  entries: number;
+  enabled: boolean;
+}
+
+export interface SkillInfo {
+  name: string;
+  description: string;
+  path: string;
+  source: "project" | "user";
+  score?: number;
 }

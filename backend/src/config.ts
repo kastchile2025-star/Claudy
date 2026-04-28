@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 import { homedir } from "node:os";
 
 export interface ClaudyConfig {
@@ -17,6 +17,25 @@ export interface ClaudyConfig {
     enabled: boolean;
     botToken: string;
     allowedChatIds: number[];
+  };
+  skills: {
+    enabled: boolean;
+    maxContextSkills: number;
+  };
+  memory: {
+    enabled: boolean;
+    maxResults: number;
+    maxEntries: number;
+  };
+  tools: {
+    enabled: boolean;
+    allowRead: boolean;
+    allowWrite: boolean;
+    allowExec: boolean;
+    allowBrowser: boolean;
+    allowedRoot: string;
+    commandTimeoutMs: number;
+    maxOutputChars: number;
   };
   agent: {
     systemPrompt: string;
@@ -49,6 +68,25 @@ const DEFAULT_CONFIG: ClaudyConfig = {
       .filter(Boolean)
       .map(Number)
       .filter(Number.isFinite),
+  },
+  skills: {
+    enabled: process.env.CLAUDY_SKILLS_ENABLED !== "false",
+    maxContextSkills: Number(process.env.CLAUDY_MAX_CONTEXT_SKILLS || 3),
+  },
+  memory: {
+    enabled: process.env.CLAUDY_MEMORY_ENABLED !== "false",
+    maxResults: Number(process.env.CLAUDY_MEMORY_MAX_RESULTS || 5),
+    maxEntries: Number(process.env.CLAUDY_MEMORY_MAX_ENTRIES || 500),
+  },
+  tools: {
+    enabled: process.env.CLAUDY_TOOLS_ENABLED !== "false",
+    allowRead: process.env.CLAUDY_TOOL_READ !== "false",
+    allowWrite: process.env.CLAUDY_TOOL_WRITE === "true",
+    allowExec: process.env.CLAUDY_TOOL_EXEC === "true",
+    allowBrowser: process.env.CLAUDY_TOOL_BROWSER !== "false",
+    allowedRoot: process.env.CLAUDY_TOOLS_ROOT || join(process.cwd(), ".."),
+    commandTimeoutMs: Number(process.env.CLAUDY_TOOL_TIMEOUT_MS || 10_000),
+    maxOutputChars: Number(process.env.CLAUDY_TOOL_MAX_OUTPUT_CHARS || 20_000),
   },
   agent: {
     systemPrompt:
@@ -85,6 +123,9 @@ export function loadConfig(): ClaudyConfig {
           allowedChatIds:
             parsed.telegram?.allowedChatIds || DEFAULT_CONFIG.telegram.allowedChatIds,
         },
+        skills: { ...DEFAULT_CONFIG.skills, ...parsed.skills },
+        memory: { ...DEFAULT_CONFIG.memory, ...parsed.memory },
+        tools: { ...DEFAULT_CONFIG.tools, ...parsed.tools },
         agent: { ...DEFAULT_CONFIG.agent, ...parsed.agent },
         server: { ...DEFAULT_CONFIG.server, ...parsed.server },
       };
@@ -102,6 +143,9 @@ export function saveConfig(config: Partial<ClaudyConfig>): ClaudyConfig {
     openrouter: { ...current.openrouter, ...config.openrouter },
     opencode: { ...current.opencode, ...config.opencode },
     telegram: { ...current.telegram, ...config.telegram },
+    skills: { ...current.skills, ...config.skills },
+    memory: { ...current.memory, ...config.memory },
+    tools: { ...current.tools, ...config.tools },
     agent: { ...current.agent, ...config.agent },
     server: { ...current.server, ...config.server },
   };
