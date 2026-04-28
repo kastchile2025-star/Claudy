@@ -2,6 +2,7 @@ export interface Config {
   opencode: {
     baseUrl: string;
     defaultModel: string;
+    apiKey?: string;
     username?: string;
     password?: string;
   };

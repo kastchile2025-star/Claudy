@@ -9,56 +9,65 @@ export const setupCommand = new Command('setup')
   .description('Configurar Claudy por primera vez')
   .action(async () => {
     console.log(chalk.cyan.bold('\n🤖 Bienvenido a Claudy Setup\n'));
-    console.log(chalk.gray('Configura tu asistente de IA personal en pocos pasos.'));
-    console.log(chalk.gray('Claudy usa OpenCode local como motor de IA.\n'));
+    console.log(chalk.gray('Configura tu asistente de IA personal en pocos pasos.\n'));
 
     const config = loadConfig();
 
     const answers = await inquirer.prompt([
       {
+        type: 'list',
+        name: 'authType',
+        message: 'Tipo de autenticación:',
+        default: config.opencode.apiKey ? 'apikey' : 'basic',
+        choices: [
+          { name: 'API Key (Bearer token)', value: 'apikey' },
+          { name: 'Usuario + Password (Basic auth)', value: 'basic' },
+          { name: 'Sin autenticación (servidor local)', value: 'none' },
+        ],
+      },
+      {
         type: 'input',
         name: 'baseUrl',
-        message: 'URL del servidor OpenCode:',
-        default: config.opencode.baseUrl || 'http://127.0.0.1:4096',
+        message: 'URL del servidor:',
+        default: (a: any) =>
+          a.authType === 'apikey'
+            ? config.opencode.baseUrl !== 'http://127.0.0.1:4096'
+              ? config.opencode.baseUrl
+              : 'https://api.opencode.ai'
+            : config.opencode.baseUrl || 'http://127.0.0.1:4096',
+      },
+      {
+        type: 'password',
+        name: 'apiKey',
+        message: 'API Key:',
+        mask: '*',
+        when: (a) => a.authType === 'apikey',
+        default: config.opencode.apiKey || undefined,
+        validate: (input: string) =>
+          input && input.length > 5 ? true : 'API key requerida',
       },
       {
         type: 'input',
         name: 'username',
-        message: 'Usuario OpenCode (opcional, Enter para "opencode"):',
+        message: 'Usuario:',
+        when: (a) => a.authType === 'basic',
         default: config.opencode.username || 'opencode',
       },
       {
         type: 'password',
         name: 'password',
-        message: 'Password OpenCode (vacío si no hay auth):',
+        message: 'Password:',
         mask: '*',
+        when: (a) => a.authType === 'basic',
         default: config.opencode.password || '',
       },
       {
-        type: 'list',
-        name: 'defaultModel',
-        message: 'Modelo predeterminado:',
-        default: config.opencode.defaultModel,
-        choices: [
-          { name: 'Anthropic: Claude Sonnet 4', value: 'anthropic/claude-sonnet-4' },
-          { name: 'Anthropic: Claude Opus 4', value: 'anthropic/claude-opus-4' },
-          { name: 'Anthropic: Claude 3.5 Sonnet', value: 'anthropic/claude-3-5-sonnet' },
-          { name: 'OpenAI: GPT-4o', value: 'openai/gpt-4o' },
-          { name: 'Google: Gemini 1.5 Pro', value: 'google/gemini-1.5-pro' },
-          { name: 'Otro (especificar)', value: 'custom' },
-        ],
-      },
-      {
         type: 'input',
-        name: 'customModel',
-        message: 'Modelo (formato: provider/model):',
-        when: (answers) => answers.defaultModel === 'custom',
-        validate: (input: string) => {
-          if (!input.includes('/')) {
-            return 'Formato inválido. Usa: provider/model';
-          }
-          return true;
-        },
+        name: 'defaultModel',
+        message: 'Modelo predeterminado (ej: anthropic/claude-sonnet-4, qwen-plus):',
+        default: config.opencode.defaultModel,
+        validate: (input: string) =>
+          input && input.trim().length > 0 ? true : 'Modelo requerido',
       },
       {
         type: 'input',
@@ -88,12 +97,10 @@ export const setupCommand = new Command('setup')
       ...config,
       opencode: {
         baseUrl: answers.baseUrl,
+        defaultModel: answers.defaultModel.trim(),
+        apiKey: answers.apiKey || '',
         username: answers.username || 'opencode',
-        password: answers.password,
-        defaultModel:
-          answers.defaultModel === 'custom'
-            ? answers.customModel
-            : answers.defaultModel,
+        password: answers.password || '',
       },
       agent: {
         systemPrompt: answers.systemPrompt,
@@ -102,19 +109,20 @@ export const setupCommand = new Command('setup')
       },
     };
 
-    // Test connection
-    const spinner = ora('Probando conexión con OpenCode...').start();
+    const spinner = ora('Probando conexión...').start();
     const client = new OpenCodeClient(newConfig.opencode);
     const ok = await client.testConnection();
 
     if (!ok) {
       spinner.warn(
         chalk.yellow(
-          'No se pudo conectar a OpenCode. Asegúrate de iniciarlo con:\n  opencode serve --port 4096 --hostname 127.0.0.1'
+          `No se pudo conectar a ${newConfig.opencode.baseUrl}.\n` +
+            '  Si usas servidor local: opencode serve --port 4096 --hostname 127.0.0.1\n' +
+            '  Si usas remoto: verifica URL y API key.'
         )
       );
     } else {
-      spinner.succeed(chalk.green('Conexión exitosa con OpenCode'));
+      spinner.succeed(chalk.green('Conexión exitosa'));
     }
 
     saveConfig(newConfig);

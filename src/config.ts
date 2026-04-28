@@ -10,6 +10,7 @@ const DEFAULT_CONFIG: Config = {
   opencode: {
     baseUrl: 'http://127.0.0.1:4096',
     defaultModel: 'anthropic/claude-sonnet-4',
+    apiKey: '',
     username: 'opencode',
     password: '',
   },

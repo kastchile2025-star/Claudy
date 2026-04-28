@@ -29,6 +29,7 @@ configCommand
     console.log(chalk.cyan('OpenCode:'));
     console.log(`  baseUrl: ${chalk.yellow(config.opencode.baseUrl)}`);
     console.log(`  defaultModel: ${chalk.yellow(config.opencode.defaultModel)}`);
+    console.log(`  apiKey: ${config.opencode.apiKey ? chalk.green('***configurada***') : chalk.gray('(none)')}`);
     console.log(`  username: ${chalk.gray(config.opencode.username || '(none)')}`);
     console.log(`  password: ${config.opencode.password ? chalk.green('***configurada***') : chalk.gray('(no auth)')}`);
     console.log('');

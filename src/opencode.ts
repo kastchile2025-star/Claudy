@@ -20,16 +20,21 @@ const STALE_SESSION_TIMEOUT_MS = 20_000;
 
 export class OpenCodeClient {
   private baseUrl: string;
+  private apiKey?: string;
   private username?: string;
   private password?: string;
 
   constructor(config: Config['opencode']) {
     this.baseUrl = config.baseUrl;
+    this.apiKey = config.apiKey;
     this.username = config.username;
     this.password = config.password;
   }
 
   private getAuthHeader(): string | undefined {
+    // API key tiene prioridad: Bearer auth
+    if (this.apiKey) return `Bearer ${this.apiKey}`;
+    // Fallback: Basic auth
     if (!this.password) return undefined;
     const user = this.username || 'opencode';
     return `Basic ${Buffer.from(`${user}:${this.password}`).toString('base64')}`;
@@ -69,14 +74,14 @@ export class OpenCodeClient {
   }
 
   private parseModel(model: string): { providerID: string; modelID: string } {
-    const [providerID, ...modelParts] = model.split('/');
-    const modelID = modelParts.join('/');
-    if (!providerID || !modelID) {
-      throw new Error(
-        `Modelo invalido: "${model}". Usa el formato provider/model, ej: anthropic/claude-sonnet-4`
-      );
+    const trimmed = model.trim();
+    if (trimmed.includes('/')) {
+      const [providerID, ...modelParts] = trimmed.split('/');
+      return { providerID, modelID: modelParts.join('/') };
     }
-    return { providerID, modelID };
+    // Sin slash: tratar el string como modelID con provider vacío.
+    // OpenCode/algunos backends aceptan esto y resuelven el provider por sí mismos.
+    return { providerID: '', modelID: trimmed };
   }
 
   private extractText(response: OpenCodeMessageResponse): string {
