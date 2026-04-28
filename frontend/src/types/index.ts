@@ -13,6 +13,7 @@ export interface Session {
   createdAt: number;
   updatedAt: number;
   model: string;
+  opencodeSessionId?: string;
 }
 
 export interface ModelInfo {
@@ -23,8 +24,11 @@ export interface ModelInfo {
 }
 
 export interface ClaudyConfig {
-  openrouter: {
+  opencode: {
+    baseUrl: string;
     defaultModel: string;
+    username?: string;
+    passwordConfigured?: boolean;
   };
   agent: {
     systemPrompt: string;

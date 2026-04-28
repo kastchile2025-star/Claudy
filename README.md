@@ -4,8 +4,8 @@
 
 ## Caracteristicas (MVP)
 
-- Chat web en tiempo real con streaming
-- Integracion con **OpenRouter** (acceso a 100+ modelos)
+- Chat web en tiempo real
+- Integracion con **OpenCode** via servidor local
 - Historial de conversaciones persistente
 - Selector de modelos desde la UI
 - Tool basica de busqueda web
@@ -16,7 +16,7 @@
 
 - **Backend**: Node.js + Express + WebSocket
 - **Frontend**: React + Tailwind CSS (standalone HTML tambien disponible)
-- **LLM**: OpenRouter API
+- **LLM**: OpenCode server (`opencode serve`)
 - **Storage**: JSON files en ~/.claudy/
 
 ## Opcion 1: GitHub Codespaces (Recomendado - Sin instalar nada)
@@ -52,10 +52,8 @@ cd Claudy
 cd backend
 bun install
 
-# 3. Configurar API Key de OpenRouter
-# La config se crea automaticamente en ~/.claudy/config.json
-# O editala manualmente:
-echo '{"openrouter":{"apiKey":"TU_API_KEY","defaultModel":"openai/gpt-4o-mini"}}' > ~/.claudy/config.json
+# 3. Iniciar OpenCode en otra terminal
+opencode serve --port 4096 --hostname 127.0.0.1
 
 # 4. Iniciar backend
 bun run src/server.ts
@@ -85,7 +83,7 @@ en tu navegador (despues de iniciar el backend).
 1. Abre http://localhost:3000 en tu navegador
 2. Escribe un mensaje para comenzar
 3. Selecciona diferentes modelos desde el menu superior
-4. Ve a Configuracion (icono de engranaje) para cambiar tu API key o system prompt
+4. Ve a Configuracion (icono de engranaje) para cambiar la URL de OpenCode, modelo o system prompt
 
 ## Estructura del Proyecto
 
@@ -94,7 +92,7 @@ claudy/
 |-- backend/
 |   |-- src/
 |   |   |-- server.ts        # Servidor Express + WebSocket
-|   |   |-- openrouter.ts    # Cliente OpenRouter API
+|   |   |-- opencode.ts      # Cliente OpenCode server
 |   |   |-- agent.ts         # Loop del agente
 |   |   |-- config.ts        # Gestion de configuracion
 |   |   |-- sessions/        # Almacenamiento de sesiones
@@ -110,9 +108,9 @@ Archivo: `~/.claudy/config.json`
 
 ```json
 {
-  "openrouter": {
-    "apiKey": "sk-or-v1-...",
-    "defaultModel": "openai/gpt-4o-mini"
+  "opencode": {
+    "baseUrl": "http://127.0.0.1:4096",
+    "defaultModel": "anthropic/claude-sonnet-4"
   },
   "agent": {
     "systemPrompt": "Eres Claudy, un asistente de IA personal...",
@@ -137,7 +135,7 @@ Archivo: `~/.claudy/config.json`
 ## Creditos
 
 - Fork inspirado en [OpenClaw](https://github.com/openclaw/openclaw) por Peter Steinberger y comunidad
-- Powered by [OpenRouter](https://openrouter.ai/)
+- Powered by [OpenCode](https://opencode.ai/)
 
 ## Licencia
 

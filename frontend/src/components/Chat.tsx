@@ -7,10 +7,9 @@ interface ChatProps {
   messages: Message[];
   isLoading: boolean;
   onSendMessage: (content: string) => void;
-  onCreateSession: () => void;
 }
 
-export function Chat({ messages, isLoading, onSendMessage, onCreateSession }: ChatProps) {
+export function Chat({ messages, isLoading, onSendMessage }: ChatProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 

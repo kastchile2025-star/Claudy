@@ -71,7 +71,6 @@ function App() {
             messages={chat.messages}
             isLoading={chat.isLoading}
             onSendMessage={chat.sendMessage}
-            onCreateSession={chat.createSession}
           />
         )}
       </div>

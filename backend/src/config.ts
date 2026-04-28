@@ -7,6 +7,12 @@ export interface ClaudyConfig {
     apiKey: string;
     defaultModel: string;
   };
+  opencode: {
+    baseUrl: string;
+    defaultModel: string;
+    username?: string;
+    password?: string;
+  };
   agent: {
     systemPrompt: string;
     maxTokens: number;
@@ -22,6 +28,12 @@ const DEFAULT_CONFIG: ClaudyConfig = {
   openrouter: {
     apiKey: process.env.OPENROUTER_API_KEY || "",
     defaultModel: "anthropic/claude-sonnet-4",
+  },
+  opencode: {
+    baseUrl: process.env.OPENCODE_BASE_URL || "http://127.0.0.1:4096",
+    defaultModel: process.env.OPENCODE_MODEL || "anthropic/claude-sonnet-4",
+    username: process.env.OPENCODE_SERVER_USERNAME,
+    password: process.env.OPENCODE_SERVER_PASSWORD,
   },
   agent: {
     systemPrompt:
@@ -62,6 +74,7 @@ export function saveConfig(config: Partial<ClaudyConfig>): ClaudyConfig {
   const current = loadConfig();
   const updated: ClaudyConfig = {
     openrouter: { ...current.openrouter, ...config.openrouter },
+    opencode: { ...current.opencode, ...config.opencode },
     agent: { ...current.agent, ...config.agent },
     server: { ...current.server, ...config.server },
   };

@@ -38,13 +38,13 @@ cd "$PROJECT_DIR/frontend"
 bun install
 
 echo ""
-echo "[4/6] Configurando API key de OpenRouter..."
+echo "[4/6] Configurando OpenCode..."
 mkdir -p ~/.claudy
 cat > ~/.claudy/config.json << 'EOF'
 {
-  "openrouter": {
-    "apiKey": "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",
-    "defaultModel": "openai/gpt-4o-mini"
+  "opencode": {
+    "baseUrl": "http://127.0.0.1:4096",
+    "defaultModel": "opencode-go/qwen3.6-plus"
   },
   "agent": {
     "systemPrompt": "Eres Claudy, un asistente de IA personal, util, directo y amigable. Responde en el idioma del usuario. Usa markdown para formatear tus respuestas. Cuando necesites buscar informacion actual, usa la herramienta de busqueda web.",

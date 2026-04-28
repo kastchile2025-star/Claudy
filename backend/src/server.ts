@@ -32,8 +32,11 @@ app.get("/api/health", (_req, res) => {
 app.get("/api/config", (_req, res) => {
   const config = getConfig();
   res.json({
-    openrouter: {
-      defaultModel: config.openrouter.defaultModel,
+    opencode: {
+      baseUrl: config.opencode.baseUrl,
+      defaultModel: config.opencode.defaultModel,
+      username: config.opencode.username || "opencode",
+      passwordConfigured: Boolean(config.opencode.password),
     },
     agent: config.agent,
     server: config.server,
@@ -62,7 +65,7 @@ app.get("/api/sessions", (_req, res) => {
 });
 
 app.post("/api/sessions", (req, res) => {
-  const model = req.body.model || getConfig().openrouter.defaultModel;
+  const model = req.body.model || getConfig().opencode.defaultModel;
   const session = createSession(model);
   res.json(session);
 });
@@ -112,7 +115,7 @@ wss.on("connection", (ws: WebSocket) => {
         const result = await runAgent(
           sessionId,
           message,
-          model || getConfig().openrouter.defaultModel,
+          model || getConfig().opencode.defaultModel,
           (chunk) => {
             ws.send(JSON.stringify({ type: "chunk", content: chunk, sessionId }));
           }

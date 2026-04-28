@@ -24,4 +24,5 @@ export interface Session {
   createdAt: number;
   updatedAt: number;
   model: string;
+  opencodeSessionId?: string;
 }

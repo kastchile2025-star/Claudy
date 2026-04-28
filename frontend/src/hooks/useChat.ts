@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { Session, ModelInfo, ClaudyConfig } from "../types";
 
 // Detectar si estamos en GitHub Codespaces
-const isCodespace = window.location.hostname.includes('github.dev');
+const isCodespace = window.location.hostname.includes("github.dev");
+const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
 
 // En Codespaces, el backend esta en la misma URL base pero con puerto 3001
 // Ejemplo: frontend = xxx-3000.github.dev, backend = xxx-3001.github.dev
@@ -16,6 +17,49 @@ if (isCodespace) {
   const backendHostname = hostname.replace('-3000.', '-3001.');
   API_URL = `https://${backendHostname}`;
   WS_URL = `wss://${backendHostname}/ws`;
+} else if (isLocalhost) {
+  API_URL = "http://127.0.0.1:3001";
+  WS_URL = "ws://127.0.0.1:3001/ws";
+}
+
+function waitForSocketOpen(ws: WebSocket): Promise<void> {
+  if (ws.readyState === WebSocket.OPEN) return Promise.resolve();
+  if (ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) {
+    return Promise.reject(new Error("La conexion WebSocket con el backend esta cerrada"));
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("No se pudo conectar al backend por WebSocket"));
+    }, 5000);
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      ws.removeEventListener("open", handleOpen);
+      ws.removeEventListener("error", handleError);
+      ws.removeEventListener("close", handleClose);
+    };
+
+    const handleOpen = () => {
+      cleanup();
+      resolve();
+    };
+
+    const handleError = () => {
+      cleanup();
+      reject(new Error("Error conectando al backend por WebSocket"));
+    };
+
+    const handleClose = () => {
+      cleanup();
+      reject(new Error("Se cerro la conexion WebSocket con el backend"));
+    };
+
+    ws.addEventListener("open", handleOpen);
+    ws.addEventListener("error", handleError);
+    ws.addEventListener("close", handleClose);
+  });
 }
 
 export function useChat() {
@@ -27,6 +71,7 @@ export function useChat() {
   const [currentModel, setCurrentModel] = useState("");
   const [config, setConfig] = useState<ClaudyConfig | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const shouldReconnectRef = useRef(true);
   const currentContentRef = useRef("");
 
   const loadSessions = useCallback(async () => {
@@ -39,14 +84,14 @@ export function useChat() {
     const res = await fetch(`${API_URL}/api/config`);
     const data = await res.json();
     setConfig(data);
-    setCurrentModel(data.openrouter.defaultModel);
+    setCurrentModel(data.opencode.defaultModel);
   }, []);
 
   const loadModels = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/models`);
       const data = await res.json();
-      setModels(data);
+      setModels(Array.isArray(data) ? data : []);
     } catch {
       // fallback
     }
@@ -68,14 +113,28 @@ export function useChat() {
     }
   }, [currentSessionId, sessions]);
 
-  const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+  const connectWebSocket = useCallback((): WebSocket => {
+    const current = wsRef.current;
+    if (
+      current &&
+      (current.readyState === WebSocket.OPEN || current.readyState === WebSocket.CONNECTING)
+    ) {
+      return current;
+    }
 
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
     ws.onopen = () => console.log("[ws] connected");
-    ws.onclose = () => setTimeout(connectWebSocket, 3000);
+    ws.onerror = () => console.error("[ws] connection error");
+    ws.onclose = () => {
+      if (wsRef.current === ws) {
+        wsRef.current = null;
+      }
+      if (shouldReconnectRef.current) {
+        window.setTimeout(connectWebSocket, 3000);
+      }
+    };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -117,11 +176,17 @@ export function useChat() {
         ]);
       }
     };
+
+    return ws;
   }, [loadSessions]);
 
   useEffect(() => {
+    shouldReconnectRef.current = true;
     connectWebSocket();
-    return () => wsRef.current?.close();
+    return () => {
+      shouldReconnectRef.current = false;
+      wsRef.current?.close();
+    };
   }, [connectWebSocket]);
 
   const createSession = useCallback(async () => {
@@ -174,16 +239,31 @@ export function useChat() {
       setIsLoading(true);
       currentContentRef.current = "";
 
-      wsRef.current?.send(
-        JSON.stringify({
-          type: "chat",
-          sessionId,
-          message: content,
-          model: currentModel,
-        })
-      );
+      try {
+        const ws = connectWebSocket();
+        await waitForSocketOpen(ws);
+        ws.send(
+          JSON.stringify({
+            type: "chat",
+            sessionId,
+            message: content,
+            model: currentModel,
+          })
+        );
+      } catch (error) {
+        setIsLoading(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            timestamp: Date.now(),
+          },
+        ]);
+      }
     },
-    [currentSessionId, currentModel, createSession]
+    [currentSessionId, currentModel, createSession, connectWebSocket]
   );
 
   const changeModel = useCallback(
