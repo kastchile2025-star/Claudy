@@ -19,6 +19,15 @@ const DEFAULT_CONFIG: Config = {
     maxTokens: 4096,
     temperature: 0.7,
   },
+  tools: {
+    enabled: true,
+    allowRead: true,
+    allowWrite: false,
+    allowExec: false,
+    allowedRoot: process.cwd(),
+    commandTimeoutMs: 10_000,
+    maxOutputChars: 20_000,
+  },
   server: {
     port: 3001,
     host: '127.0.0.1',
@@ -47,6 +56,7 @@ export function loadConfig(): Config {
       ...parsed,
       opencode: { ...DEFAULT_CONFIG.opencode, ...(parsed.opencode || {}) },
       agent: { ...DEFAULT_CONFIG.agent, ...(parsed.agent || {}) },
+      tools: { ...DEFAULT_CONFIG.tools, ...(parsed.tools || {}) },
       server: { ...DEFAULT_CONFIG.server, ...(parsed.server || {}) },
     };
   } catch (error) {
@@ -67,6 +77,7 @@ export function updateConfig(updates: Partial<Config>): void {
     ...updates,
     opencode: { ...config.opencode, ...updates.opencode },
     agent: { ...config.agent, ...updates.agent },
+    tools: { ...config.tools, ...updates.tools },
     server: { ...config.server, ...updates.server },
   };
   saveConfig(merged);

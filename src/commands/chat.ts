@@ -5,6 +5,7 @@ import ora from 'ora';
 import readline from 'readline';
 import { loadConfig } from '../config.js';
 import { OpenCodeClient } from '../opencode.js';
+import { toolRead, toolWrite, toolExec } from '../tools.js';
 import {
   createSession,
   saveSession,
@@ -12,7 +13,7 @@ import {
   addMessage,
   listSessions,
 } from '../utils.js';
-import { Session } from '../types.js';
+import { Session, Config } from '../types.js';
 
 export const chatCommand = new Command('chat')
   .description('Iniciar sesión de chat interactivo')
@@ -69,7 +70,14 @@ export const chatCommand = new Command('chat')
     console.log(chalk.gray(`Modelo: ${session.model}`));
     console.log(chalk.gray(`Sesión: ${session.id.substring(0, 8)}...`));
     console.log(chalk.gray(`OpenCode: ${config.opencode.baseUrl}`));
-    console.log(chalk.gray('Comandos: /exit, /clear, /save, /model, /help'));
+    console.log(
+      chalk.gray(
+        `Tools: read=${config.tools.allowRead ? '✓' : '✗'} write=${
+          config.tools.allowWrite ? '✓' : '✗'
+        } exec=${config.tools.allowExec ? '✓' : '✗'}`
+      )
+    );
+    console.log(chalk.gray('Comandos: /exit /clear /save /model /read /write /exec /help'));
     console.log(chalk.gray('─────────────────────────────────────────\n'));
 
     if (session.messages.length > 0) {
@@ -97,8 +105,8 @@ export const chatCommand = new Command('chat')
         }
 
         if (userInput.startsWith('/')) {
-          const handled = await handleCommand(userInput, session);
-          if (handled === 'exit') {
+          const result = await handleCommand(userInput, session, config);
+          if (result === 'exit') {
             rl.close();
             return;
           }
@@ -155,9 +163,11 @@ async function createNewSession(model: string): Promise<Session> {
 
 async function handleCommand(
   command: string,
-  session: Session
+  session: Session,
+  config: Config
 ): Promise<'exit' | 'handled'> {
   const [cmd, ...args] = command.split(' ');
+  const rest = args.join(' ');
 
   switch (cmd) {
     case '/exit':
@@ -176,13 +186,94 @@ async function handleCommand(
     case '/model':
       if (args.length > 0) {
         session.model = args.join(' ');
-        // Cambiar modelo invalida la sesión OpenCode
         session.opencodeSessionId = undefined;
         saveSession(session);
         console.log(chalk.green(`✓ Modelo cambiado a: ${session.model}`));
       } else {
         console.log(chalk.gray(`Modelo actual: ${session.model}`));
       }
+      return 'handled';
+
+    case '/read': {
+      if (!rest) {
+        console.log(chalk.yellow('Uso: /read <ruta>'));
+        return 'handled';
+      }
+      const result = await toolRead(rest, config.tools);
+      if (result.ok) {
+        console.log(chalk.cyan(`\n📄 ${rest}:`));
+        console.log(chalk.gray(result.output));
+        console.log('');
+        // Inyectar como mensaje "user" para que Claudy lo vea en el siguiente turno
+        addMessage(
+          session,
+          'user',
+          `[Tool /read ${rest}]\n\`\`\`\n${result.output}\n\`\`\``
+        );
+        saveSession(session);
+      } else {
+        console.log(chalk.red(`✗ ${result.error}`));
+      }
+      return 'handled';
+    }
+
+    case '/write': {
+      // Sintaxis: /write <ruta>\n<contenido>
+      const newlineIdx = rest.indexOf('\n');
+      const filePath = newlineIdx >= 0 ? rest.slice(0, newlineIdx).trim() : rest.trim();
+      const content = newlineIdx >= 0 ? rest.slice(newlineIdx + 1) : '';
+
+      if (!filePath) {
+        console.log(chalk.yellow('Uso: /write <ruta>\\n<contenido>'));
+        return 'handled';
+      }
+      if (!content) {
+        console.log(chalk.yellow('Sin contenido. Pasa el contenido tras un salto de línea.'));
+        return 'handled';
+      }
+      const result = await toolWrite(filePath, content, config.tools);
+      if (result.ok) {
+        console.log(chalk.green(`✓ ${result.output}`));
+        addMessage(session, 'user', `[Tool /write ${filePath}] ${result.output}`);
+        saveSession(session);
+      } else {
+        console.log(chalk.red(`✗ ${result.error}`));
+      }
+      return 'handled';
+    }
+
+    case '/exec': {
+      if (!rest) {
+        console.log(chalk.yellow('Uso: /exec <comando>'));
+        return 'handled';
+      }
+      const result = await toolExec(rest, config.tools);
+      if (result.ok) {
+        console.log(chalk.cyan(`\n▶ ${rest}`));
+        console.log(chalk.gray(result.output));
+        console.log('');
+        addMessage(
+          session,
+          'user',
+          `[Tool /exec ${rest}]\n\`\`\`\n${result.output}\n\`\`\``
+        );
+        saveSession(session);
+      } else {
+        console.log(chalk.red(`✗ ${result.error}`));
+        if (result.output) console.log(chalk.gray(result.output));
+      }
+      return 'handled';
+    }
+
+    case '/tools':
+      console.log(chalk.cyan('\nEstado de tools:'));
+      console.log(`  enabled:    ${tick(config.tools.enabled)}`);
+      console.log(`  read:       ${tick(config.tools.allowRead)}`);
+      console.log(`  write:      ${tick(config.tools.allowWrite)}`);
+      console.log(`  exec:       ${tick(config.tools.allowExec)}`);
+      console.log(`  root:       ${chalk.gray(config.tools.allowedRoot)}`);
+      console.log(`  timeout:    ${chalk.gray(config.tools.commandTimeoutMs + 'ms')}`);
+      console.log(chalk.gray('\nCambia con: claudy config set tools.allowWrite true\n'));
       return 'handled';
 
     case '/history':
@@ -192,16 +283,24 @@ async function handleCommand(
 
     case '/help':
       console.log(chalk.cyan('\nComandos disponibles:'));
-      console.log(chalk.gray('  /exit       - Salir del chat'));
-      console.log(chalk.gray('  /clear      - Limpiar pantalla'));
-      console.log(chalk.gray('  /save       - Guardar sesión'));
-      console.log(chalk.gray('  /model <m>  - Cambiar modelo'));
-      console.log(chalk.gray('  /history    - Info de sesión'));
-      console.log(chalk.gray('  /help       - Mostrar ayuda\n'));
+      console.log(chalk.gray('  /exit                       - Salir'));
+      console.log(chalk.gray('  /clear                      - Limpiar pantalla'));
+      console.log(chalk.gray('  /save                       - Guardar sesión'));
+      console.log(chalk.gray('  /model <m>                  - Cambiar modelo'));
+      console.log(chalk.gray('  /read <ruta>                - Leer archivo (lo añade al contexto)'));
+      console.log(chalk.gray('  /write <ruta>\\n<contenido>  - Escribir archivo'));
+      console.log(chalk.gray('  /exec <comando>             - Ejecutar shell command'));
+      console.log(chalk.gray('  /tools                      - Ver estado de tools'));
+      console.log(chalk.gray('  /history                    - Info de sesión'));
+      console.log(chalk.gray('  /help                       - Esta ayuda\n'));
       return 'handled';
 
     default:
       console.log(chalk.yellow(`Comando desconocido: ${cmd}. Usa /help`));
       return 'handled';
   }
+}
+
+function tick(value: boolean): string {
+  return value ? chalk.green('✓') : chalk.red('✗');
 }

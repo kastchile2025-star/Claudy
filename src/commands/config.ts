@@ -38,6 +38,14 @@ configCommand
     console.log(`  maxTokens: ${chalk.yellow(config.agent.maxTokens)}`);
     console.log(`  temperature: ${chalk.yellow(config.agent.temperature)}`);
     console.log('');
+    console.log(chalk.cyan('Tools:'));
+    console.log(`  enabled:    ${config.tools.enabled ? chalk.green('✓') : chalk.red('✗')}`);
+    console.log(`  allowRead:  ${config.tools.allowRead ? chalk.green('✓') : chalk.red('✗')}`);
+    console.log(`  allowWrite: ${config.tools.allowWrite ? chalk.green('✓') : chalk.red('✗')}`);
+    console.log(`  allowExec:  ${config.tools.allowExec ? chalk.green('✓') : chalk.red('✗')}`);
+    console.log(`  allowedRoot: ${chalk.gray(config.tools.allowedRoot)}`);
+    console.log(`  timeout:    ${chalk.yellow(config.tools.commandTimeoutMs + 'ms')}`);
+    console.log('');
   });
 
 configCommand

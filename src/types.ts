@@ -11,6 +11,15 @@ export interface Config {
     maxTokens: number;
     temperature: number;
   };
+  tools: {
+    enabled: boolean;
+    allowRead: boolean;
+    allowWrite: boolean;
+    allowExec: boolean;
+    allowedRoot: string;
+    commandTimeoutMs: number;
+    maxOutputChars: number;
+  };
   server?: {
     port: number;
     host: string;
