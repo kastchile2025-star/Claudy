@@ -62,10 +62,34 @@ export const setupCommand = new Command('setup')
         default: config.opencode.password || '',
       },
       {
-        type: 'input',
+        type: 'list',
         name: 'defaultModel',
-        message: 'Modelo predeterminado (ej: anthropic/claude-sonnet-4, qwen-plus):',
+        message: 'Modelo predeterminado (OpenCode Go):',
         default: config.opencode.defaultModel,
+        choices: [
+          { name: 'GLM-5', value: 'opencode-go/glm-5' },
+          { name: 'GLM-5.1', value: 'opencode-go/glm-5.1' },
+          { name: 'Kimi K2.5', value: 'opencode-go/kimi-k2.5' },
+          { name: 'Kimi K2.6', value: 'opencode-go/kimi-k2.6' },
+          { name: 'MiMo-V2-Pro', value: 'opencode-go/mimo-v2-pro' },
+          { name: 'MiMo-V2-Omni', value: 'opencode-go/mimo-v2-omni' },
+          { name: 'MiMo-V2.5-Pro', value: 'opencode-go/mimo-v2.5-pro' },
+          { name: 'MiMo-V2.5', value: 'opencode-go/mimo-v2.5' },
+          { name: 'MiniMax M2.5', value: 'opencode-go/minimax-m2.5' },
+          { name: 'Qwen3.5 Plus', value: 'opencode-go/qwen3.5-plus' },
+          { name: 'Qwen3.6 Plus (recomendado)', value: 'opencode-go/qwen3.6-plus' },
+          { name: 'MiniMax M2.7', value: 'opencode-go/minimax-m2.7' },
+          { name: 'DeepSeek V4 Pro', value: 'opencode-go/deepseek-v4-pro' },
+          { name: 'DeepSeek V4 Flash', value: 'opencode-go/deepseek-v4-flash' },
+          new inquirer.Separator(),
+          { name: 'Otro (especificar manualmente)', value: 'custom' },
+        ],
+      },
+      {
+        type: 'input',
+        name: 'customModel',
+        message: 'Modelo (formato: provider/model):',
+        when: (a: any) => a.defaultModel === 'custom',
         validate: (input: string) =>
           input && input.trim().length > 0 ? true : 'Modelo requerido',
       },
@@ -97,7 +121,10 @@ export const setupCommand = new Command('setup')
       ...config,
       opencode: {
         baseUrl: answers.baseUrl,
-        defaultModel: answers.defaultModel.trim(),
+        defaultModel: (answers.defaultModel === 'custom'
+          ? answers.customModel
+          : answers.defaultModel
+        ).trim(),
         apiKey: answers.apiKey || '',
         username: answers.username || 'opencode',
         password: answers.password || '',

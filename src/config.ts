@@ -9,7 +9,7 @@ const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const DEFAULT_CONFIG: Config = {
   opencode: {
     baseUrl: 'http://127.0.0.1:4096',
-    defaultModel: 'anthropic/claude-sonnet-4',
+    defaultModel: 'opencode-go/qwen3.6-plus',
     apiKey: '',
     username: 'opencode',
     password: '',
