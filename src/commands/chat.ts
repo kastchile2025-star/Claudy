@@ -5,6 +5,7 @@ import * as readline from 'readline/promises';
 import { loadConfig } from '../config.js';
 import { OpenCodeClient } from '../opencode.js';
 import { toolRead, toolWrite, toolExec } from '../tools.js';
+import { findRelevantSkills, buildSkillsContext, listSkills } from '../skills.js';
 import {
   createSession,
   saveSession,
@@ -76,7 +77,15 @@ export const chatCommand = new Command('chat')
         } exec=${config.tools.allowExec ? '✓' : '✗'}`
       )
     );
-    console.log(chalk.gray('Comandos: /exit /clear /save /model /read /write /exec /help'));
+    const installedSkills = listSkills();
+    if (installedSkills.length > 0) {
+      console.log(
+        chalk.gray(
+          `Skills: ${installedSkills.map((s) => s.name).join(', ')}`
+        )
+      );
+    }
+    console.log(chalk.gray('Comandos: /exit /clear /save /model /read /write /exec /skills /help'));
     console.log(chalk.gray('─────────────────────────────────────────\n'));
 
     if (session.messages.length > 0) {
@@ -123,11 +132,15 @@ export const chatCommand = new Command('chat')
       process.stdout.write(chalk.cyan('Pensando...'));
 
       try {
+        const relevantSkills = findRelevantSkills(userInput, 2);
+        const systemPrompt =
+          config.agent.systemPrompt + buildSkillsContext(relevantSkills);
+
         const reply = await client.sendMessage(
           session,
           userInput,
           session.model,
-          config.agent.systemPrompt
+          systemPrompt
         );
 
         // Borra "Pensando..."
@@ -260,6 +273,19 @@ async function handleCommand(
       } else {
         console.log(chalk.red(`✗ ${result.error}`));
         if (result.output) console.log(chalk.gray(result.output));
+      }
+      return 'handled';
+    }
+
+    case '/skills': {
+      const skills = listSkills();
+      if (skills.length === 0) {
+        console.log(chalk.gray('\nNo hay skills instalados.'));
+        console.log(chalk.gray('Instala con: claudy skills install <url>\n'));
+      } else {
+        console.log(chalk.cyan(`\n📚 Skills (${skills.length}):`));
+        skills.forEach((s) => console.log(chalk.gray(`  • ${s.name} — ${s.description}`)));
+        console.log('');
       }
       return 'handled';
     }

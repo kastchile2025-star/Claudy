@@ -6,6 +6,7 @@ import { chatCommand } from './commands/chat.js';
 import { configCommand } from './commands/config.js';
 import { sessionsCommand } from './commands/sessions.js';
 import { modelsCommand } from './commands/models.js';
+import { skillsCommand } from './commands/skills.js';
 
 const program = new Command();
 
@@ -20,6 +21,7 @@ program.addCommand(chatCommand);
 program.addCommand(configCommand);
 program.addCommand(sessionsCommand);
 program.addCommand(modelsCommand);
+program.addCommand(skillsCommand);
 
 // Help personalizado
 program.on('--help', () => {
