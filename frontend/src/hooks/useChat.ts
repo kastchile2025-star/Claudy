@@ -1,8 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Session, ModelInfo, ClaudyConfig } from "../types";
 
-const API_URL = "";
-const WS_URL = `ws://${window.location.host}/ws`;
+// Detectar si estamos en GitHub Codespaces
+const isCodespace = window.location.hostname.includes('github.dev');
+
+// En Codespaces, el backend esta en la misma URL pero con puerto 3001
+// Ejemplo: frontend = xxx-3000.github.dev, backend = xxx-3001.github.dev
+const API_URL = isCodespace
+  ? window.location.origin.replace('-3000.', '-3001.')
+  : '';
+
+const WS_URL = isCodespace
+  ? window.location.href.replace('-3000.', '-3001.').replace('https://', 'wss://').replace(/\/$/, '') + '/ws'
+  : `ws://${window.location.host}/ws`;
 
 export function useChat() {
   const [sessions, setSessions] = useState<Session[]>([]);
