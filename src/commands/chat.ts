@@ -1,8 +1,7 @@
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import ora from 'ora';
-import readline from 'readline';
+import * as readline from 'readline/promises';
 import { loadConfig } from '../config.js';
 import { OpenCodeClient } from '../opencode.js';
 import { toolRead, toolWrite, toolExec } from '../tools.js';
@@ -95,58 +94,58 @@ export const chatCommand = new Command('chat')
       output: process.stdout,
     });
 
-    const askQuestion = () => {
-      rl.question(chalk.green('You: '), async (input) => {
-        const userInput = input.trim();
-
-        if (!userInput) {
-          askQuestion();
-          return;
-        }
-
-        if (userInput.startsWith('/')) {
-          const result = await handleCommand(userInput, session, config);
-          if (result === 'exit') {
-            rl.close();
-            return;
-          }
-          askQuestion();
-          return;
-        }
-
-        addMessage(session, 'user', userInput);
-
-        const spinner = ora({ text: 'Pensando...', color: 'cyan' }).start();
-
-        try {
-          const reply = await client.sendMessage(
-            session,
-            userInput,
-            session.model,
-            config.agent.systemPrompt
-          );
-
-          spinner.stop();
-
-          addMessage(session, 'assistant', reply);
-          saveSession(session);
-
-          console.log(chalk.blue('Claudy: ') + reply + '\n');
-        } catch (error: any) {
-          spinner.fail(chalk.red('Error: ' + error.message));
-        }
-
-        askQuestion();
-      });
-    };
-
-    askQuestion();
-
-    rl.on('close', () => {
+    // Ctrl+C limpio
+    rl.on('SIGINT', () => {
       saveSession(session);
       console.log(chalk.gray('\n👋 Sesión guardada. ¡Hasta luego!\n'));
+      rl.close();
       process.exit(0);
     });
+
+    while (true) {
+      let userInput: string;
+      try {
+        userInput = (await rl.question(chalk.green('You: '))).trim();
+      } catch {
+        // readline cerrado externamente
+        break;
+      }
+
+      if (!userInput) continue;
+
+      if (userInput.startsWith('/')) {
+        const result = await handleCommand(userInput, session, config);
+        if (result === 'exit') break;
+        continue;
+      }
+
+      addMessage(session, 'user', userInput);
+      process.stdout.write(chalk.cyan('Pensando...'));
+
+      try {
+        const reply = await client.sendMessage(
+          session,
+          userInput,
+          session.model,
+          config.agent.systemPrompt
+        );
+
+        // Borra "Pensando..."
+        process.stdout.write('\r' + ' '.repeat(20) + '\r');
+
+        addMessage(session, 'assistant', reply);
+        saveSession(session);
+
+        console.log(chalk.blue('Claudy: ') + reply + '\n');
+      } catch (error: any) {
+        process.stdout.write('\r' + ' '.repeat(20) + '\r');
+        console.log(chalk.red('✗ Error: ' + error.message) + '\n');
+      }
+    }
+
+    saveSession(session);
+    rl.close();
+    console.log(chalk.gray('\n👋 Sesión guardada. ¡Hasta luego!\n'));
   });
 
 async function createNewSession(model: string): Promise<Session> {
