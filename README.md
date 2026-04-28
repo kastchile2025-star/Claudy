@@ -19,7 +19,24 @@
 - **LLM**: OpenRouter API
 - **Storage**: JSON files en ~/.claudy/
 
-## Instalacion Rapida
+## Opcion 1: GitHub Codespaces (Recomendado - Sin instalar nada)
+
+La forma mas facil de probar Claudy es en un **GitHub Codespace**. No necesitas instalar nada en tu computadora.
+
+### Pasos:
+
+1. Ve al repo: https://github.com/kastchile2025-star/Claudy
+2. Haz clic en el boton verde **<> Code** → **Codespaces** → **Create codespace on main**
+3. Espera 1-2 minutos a que se configure (instala dependencias automaticamente)
+4. Cuando termine, aparecera una notificacion: **"Your application running on port 3000 is available"**
+5. Haz clic en **Open in Browser** 🎉
+6. Listo! Ya puedes chatear con Claudy
+
+> **Nota**: El backend (puerto 3001) y frontend (puerto 3000) se inician automaticamente. Tambien puedes hacer clic en los puertos en la pestaña "Ports" (abajo) y seleccionar "Open in Browser".
+
+---
+
+## Opcion 2: Instalacion Local
 
 ### Requisitos
 - Node.js 20+ o Bun
@@ -27,10 +44,12 @@
 ### Pasos
 
 ```bash
-# 1. Entrar al backend
-cd claudy/backend
+# 1. Clonar el repo
+git clone https://github.com/kastchile2025-star/Claudy.git
+cd Claudy
 
-# 2. Instalar dependencias (con bun)
+# 2. Entrar al backend e instalar
+cd backend
 bun install
 
 # 3. Configurar API Key de OpenRouter
@@ -42,13 +61,13 @@ echo '{"openrouter":{"apiKey":"TU_API_KEY","defaultModel":"openai/gpt-4o-mini"}}
 bun run src/server.ts
 
 # 5. En otra terminal, entrar al frontend
-cd claudy/frontend
-
-# 6. Instalar dependencias
+cd ../frontend
 bun install
 
-# 7. Iniciar frontend
+# 6. Iniciar frontend
 bun run dev
+
+# 7. Abrir http://localhost:3000
 ```
 
 ### Opcion rapida (HTML standalone)
