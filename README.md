@@ -37,6 +37,20 @@ La forma mas facil de probar Claudy es en un **GitHub Codespace**. No necesitas 
 
 > Nota: el backend usa el puerto `3001` y el frontend usa el puerto `3000`.
 
+Scripts utiles en Codespaces:
+
+```bash
+bash scripts/codespace-opencode.sh
+bash scripts/codespace-backend.sh
+bash scripts/codespace-frontend.sh
+```
+
+O para levantar todo en segundo plano con logs:
+
+```bash
+bash scripts/codespace-all.sh
+```
+
 ## Opcion 2: Instalacion Local
 
 ### Requisitos
