@@ -74,6 +74,7 @@ O usar comandos slash:
 
 ### Productivity
 - [`git-workflow`](git-workflow/SKILL.md) - Trunk-based, conventional commits, recovery.
+- [`file-search`](file-search/SKILL.md) - Buscar archivos por nombre, extension o contenido con find/grep/rg.
 
 ### Agentic Workflows
 - [`superpowers`](superpowers/SKILL.md) - Workflow para proyectos chicos / MVP.
