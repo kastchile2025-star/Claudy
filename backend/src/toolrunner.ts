@@ -234,12 +234,15 @@ export function toolsSystemContext(): string {
   const config = getConfig().tools;
   if (!config.enabled) return "";
 
-  return [
-    "Tools locales disponibles solo si el usuario los invoca explicitamente con comandos slash:",
-    config.allowRead ? "- /read ruta: lee un archivo dentro del directorio permitido." : "",
-    config.allowWrite ? "- /write ruta\\ncontenido: escribe un archivo dentro del directorio permitido." : "",
-    config.allowExec ? "- /exec comando: ejecuta un comando en el directorio permitido." : "",
-    config.allowBrowser ? "- /browse URL: obtiene texto de una pagina web." : "",
+  const lines = [
+    "Tools locales disponibles. Para las tools de lectura (/read) y navegacion web (/browse), puedes USARLAS PROACTIVAMENTE: escribe el slash command en una linea propia y el backend lo ejecutara automaticamente, te devolvera el resultado y luego respondes al usuario. NO digas 'no puedo buscar en internet' o 'no tengo acceso a la web' si /browse esta disponible: simplemente escribe `/browse <URL>` y el sistema corre la peticion por ti.",
+    "Formato exacto que el backend detecta: una linea que empieza con `/browse <URL>` o `/read <ruta>`. Una sola tool por turno; si necesitas mas, espera el resultado y emite la siguiente.",
+    "Las tools que modifican estado (/write, /exec) requieren que el usuario las invoque explicitamente con el slash command, salvo que ya autorizo la accion en el turno actual.",
+    "",
+    config.allowRead ? "- /read ruta: lee un archivo dentro del directorio permitido. Uso proactivo permitido." : "",
+    config.allowBrowser ? "- /browse URL: descarga texto plano de una pagina o API publica (http/https). Uso proactivo permitido. Si el usuario pide informacion que vive en internet, USA esta tool antes de decir que no puedes." : "",
+    config.allowWrite ? "- /write ruta\\ncontenido: escribe un archivo. Solo si el usuario lo pide explicitamente." : "",
+    config.allowExec ? "- /exec comando: ejecuta un comando shell. Solo si el usuario lo pide explicitamente." : "",
     "- /skills: lista skills instalados.",
     "- /skill_search consulta: busca skills instalados.",
     "- /skill_find consulta: busca skills en internet usando skills.sh.",
@@ -247,7 +250,19 @@ export function toolsSystemContext(): string {
     "- /skill_install URL: instala un SKILL.md desde URL.",
     'Si el usuario pide en lenguaje natural "instala una skill para X", puedes hacerlo mediante el instalador de skills.',
     `Directorio permitido: ${config.allowedRoot}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ];
+
+  if (config.allowBrowser) {
+    lines.push(
+      "",
+      "URLs sin API key utiles para /browse:",
+      "- Clima: https://wttr.in/<ciudad>?format=j1  o  https://api.open-meteo.com/v1/forecast?latitude=...&longitude=...&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7",
+      "- Geocoding: https://geocoding-api.open-meteo.com/v1/search?name=<ciudad>&count=1",
+      "- Tipo de cambio: https://api.exchangerate.host/latest?base=USD&symbols=CLP,EUR",
+      "- Wikipedia: https://es.wikipedia.org/api/rest_v1/page/summary/<Titulo>",
+      "- Busqueda generica: https://html.duckduckgo.com/html/?q=<query>"
+    );
+  }
+
+  return lines.filter((line) => line !== "").join("\n");
 }

@@ -75,6 +75,8 @@ O usar comandos slash:
 ### Productivity
 - [`git-workflow`](git-workflow/SKILL.md) - Trunk-based, conventional commits, recovery.
 - [`file-search`](file-search/SKILL.md) - Buscar archivos por nombre, extension o contenido con find/grep/rg.
+- [`web-search`](web-search/SKILL.md) - Buscar info en internet con /browse + URLs sin API key.
+- [`weather`](weather/SKILL.md) - Clima y pronostico (wttr.in / Open-Meteo) sin API key.
 
 ### Agentic Workflows
 - [`superpowers`](superpowers/SKILL.md) - Workflow para proyectos chicos / MVP.
