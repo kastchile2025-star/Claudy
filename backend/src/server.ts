@@ -5,7 +5,13 @@ import { WebSocketServer, WebSocket } from "ws";
 import { getConfig, saveConfig, refreshConfig } from "./config";
 import { runAgent, listModels } from "./agent";
 import { syncTelegramBot } from "./telegram";
-import { installSkillFromUrl, listSkills, searchSkills } from "./skills";
+import {
+  installBestSkillForQuery,
+  installSkillFromUrl,
+  listSkills,
+  searchRemoteSkills,
+  searchSkills,
+} from "./skills";
 import { getMemoryStats, searchMemories } from "./memory";
 import {
   createSession,
@@ -85,6 +91,22 @@ app.get("/api/skills/search", (req, res) => {
   res.json(searchSkills(query).map(({ content: _content, ...skill }) => skill));
 });
 
+app.get("/api/skills/remote-search", async (req, res) => {
+  try {
+    const query = String(req.query.q || "");
+    if (!query) {
+      res.status(400).json({ error: "Query requerida" });
+      return;
+    }
+
+    res.json(await searchRemoteSkills(query));
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 app.post("/api/skills/install", async (req, res) => {
   try {
     const url = String(req.body.url || "");
@@ -95,6 +117,22 @@ app.post("/api/skills/install", async (req, res) => {
 
     const skill = await installSkillFromUrl(url);
     res.json(skill);
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/skills/install-best", async (req, res) => {
+  try {
+    const query = String(req.body.query || "");
+    if (!query) {
+      res.status(400).json({ error: "Query requerida" });
+      return;
+    }
+
+    res.json(await installBestSkillForQuery(query));
   } catch (error) {
     res.status(400).json({
       error: error instanceof Error ? error.message : String(error),

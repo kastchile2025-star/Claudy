@@ -90,6 +90,8 @@ Claudy incluye tools invocadas manualmente por comandos slash. Por seguridad, `/
 | `/exec bun --version` | Ejecuta un comando. Requiere activar ejecucion. |
 | `/skills` | Lista skills instalados. |
 | `/skill_search telegram` | Busca skills instalados. |
+| `/skill_find pdf` | Busca skills en internet usando skills.sh. |
+| `/skill_install_best pdf` | Instala el mejor `SKILL.md` encontrado y actualiza el README local de skills. |
 | `/skill_install URL` | Instala un `SKILL.md` desde una URL. |
 
 Puedes configurar el directorio permitido desde la UI o con `CLAUDY_TOOLS_ROOT`. Las tools de archivos y ejecucion no pueden salir de ese directorio.
@@ -100,13 +102,30 @@ Claudy puede cargar habilidades desde archivos `SKILL.md`.
 
 - Los skills del proyecto viven en `skills/<nombre>/SKILL.md`.
 - Los skills instalados por el usuario se guardan en `~/.claudy/skills/<nombre>/SKILL.md`.
+- Cada instalacion copia `SKILL.md` y, si la fuente es GitHub, tambien archivos auxiliares del directorio del skill.
+- Cada instalacion actualiza `~/.claudy/skills/README.md` con nombre, descripcion, fuente y ruta local.
 - Cuando escribes un mensaje, Claudy busca skills relevantes y los agrega como contexto del agente.
 - Desde Configuracion puedes buscar skills instalados o instalar uno pegando una URL a `SKILL.md`.
+- Tambien puedes decir en lenguaje natural: `instala una skill para leer pdf`.
 
 Ejemplo de URL compatible:
 
 ```text
 https://github.com/vercel-labs/skills/blob/main/skills/find-skills/SKILL.md
+```
+
+Comandos utiles desde el chat web:
+
+```text
+/skill_find pdf
+/skill_install_best pdf
+```
+
+Comandos equivalentes desde el CLI:
+
+```text
+/find-skill pdf
+/install-skill pdf
 ```
 
 Los skills son instrucciones en Markdown. Instala solo skills de fuentes confiables.

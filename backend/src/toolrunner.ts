@@ -3,7 +3,14 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import { getConfig } from "./config";
-import { installSkillFromUrl, listSkills, searchSkills } from "./skills";
+import {
+  installBestSkillForQuery,
+  installSkillFromUrl,
+  listSkills,
+  parseSkillIntent,
+  searchRemoteSkills,
+  searchSkills,
+} from "./skills";
 
 const execAsync = promisify(exec);
 
@@ -124,9 +131,70 @@ function formatSkillSearch(query: string) {
   return skills.map((skill) => `- ${skill.name}: ${skill.description}`).join("\n");
 }
 
+async function formatRemoteSkillSearch(query: string) {
+  const skills = await searchRemoteSkills(query, 5);
+  if (skills.length === 0) return `No encontre skills en internet para "${query}".`;
+
+  return [
+    `Encontre estos skills en internet para "${query}":`,
+    ...skills.map(
+      (skill, index) =>
+        `${index + 1}. ${skill.name} (${skill.source}/${skill.skillId}) - ${
+          skill.installs || 0
+        } installs`
+    ),
+    "",
+    "Para instalar automaticamente el mejor resultado, escribe: /skill_install_best " + query,
+  ].join("\n");
+}
+
+async function installBestSkill(query: string) {
+  const result = await installBestSkillForQuery(query);
+  const alternatives = result.candidates
+    .filter((candidate) => candidate.id !== result.remote.id)
+    .slice(0, 3)
+    .map(
+      (candidate) =>
+        `- ${candidate.name} (${candidate.source}/${candidate.skillId}, ${
+          candidate.installs || 0
+        } installs)`
+    );
+
+  return [
+    `Skill instalado: ${result.skill.name}`,
+    `Descripcion: ${result.skill.description}`,
+    `Fuente: ${result.remote.source}/${result.remote.skillId}`,
+    `Installs reportados: ${result.remote.installs || 0}`,
+    `README actualizado: ${result.readmePath}`,
+    "",
+    "Ya queda disponible para futuras respuestas de Claudy cuando el mensaje sea relevante.",
+    alternatives.length ? "\nOtros candidatos considerados:\n" + alternatives.join("\n") : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export async function runLocalToolCommand(message: string): Promise<ToolResult> {
   const match = message.match(/^\/([a-z_]+)(?:\s+([\s\S]*))?$/i);
-  if (!match) return { handled: false };
+  if (!match) {
+    const intent = parseSkillIntent(message);
+    if (!intent) return { handled: false };
+
+    try {
+      const content =
+        intent.action === "install"
+          ? await installBestSkill(intent.query)
+          : await formatRemoteSkillSearch(intent.query);
+      return { handled: true, content };
+    } catch (error) {
+      return {
+        handled: true,
+        content: `No pude completar la busqueda/instalacion de skill: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+  }
 
   const command = match[1].toLowerCase();
   const args = match[2] || "";
@@ -140,6 +208,12 @@ export async function runLocalToolCommand(message: string): Promise<ToolResult> 
     }
     if (command === "skills") return { handled: true, content: formatSkills() };
     if (command === "skill_search") return { handled: true, content: formatSkillSearch(args) };
+    if (command === "skill_find") {
+      return { handled: true, content: await formatRemoteSkillSearch(args.trim()) };
+    }
+    if (command === "skill_install_best") {
+      return { handled: true, content: await installBestSkill(args.trim()) };
+    }
     if (command === "skill_install") {
       const skill = await installSkillFromUrl(args.trim());
       return { handled: true, content: `Skill instalado: ${skill.name}\n${skill.description}` };
@@ -168,7 +242,10 @@ export function toolsSystemContext(): string {
     config.allowBrowser ? "- /browse URL: obtiene texto de una pagina web." : "",
     "- /skills: lista skills instalados.",
     "- /skill_search consulta: busca skills instalados.",
+    "- /skill_find consulta: busca skills en internet usando skills.sh.",
+    "- /skill_install_best consulta: instala el mejor SKILL.md encontrado en internet y actualiza el README local.",
     "- /skill_install URL: instala un SKILL.md desde URL.",
+    'Si el usuario pide en lenguaje natural "instala una skill para X", puedes hacerlo mediante el instalador de skills.',
     `Directorio permitido: ${config.allowedRoot}`,
   ]
     .filter(Boolean)

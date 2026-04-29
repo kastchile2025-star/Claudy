@@ -5,7 +5,16 @@ import * as readline from 'readline/promises';
 import { loadConfig } from '../config.js';
 import { OpenCodeClient } from '../opencode.js';
 import { toolRead, toolWrite, toolExec } from '../tools.js';
-import { findRelevantSkills, buildSkillsContext, listSkills } from '../skills.js';
+import {
+  findRelevantSkills,
+  buildSkillsContext,
+  listSkills,
+  installSkillFromUrl,
+  findSkillUrls,
+  installBestSkillForQuery,
+  parseSkillIntent,
+  searchRemoteSkills,
+} from '../skills.js';
 import {
   createSession,
   saveSession,
@@ -85,7 +94,11 @@ export const chatCommand = new Command('chat')
         )
       );
     }
-    console.log(chalk.gray('Comandos: /exit /clear /save /model /read /write /exec /skills /help'));
+    console.log(
+      chalk.gray(
+        'Comandos: /exit /clear /save /model /read /write /exec /skills /find-skill /install-skill /help'
+      )
+    );
     console.log(chalk.gray('─────────────────────────────────────────\n'));
 
     if (session.messages.length > 0) {
@@ -123,8 +136,31 @@ export const chatCommand = new Command('chat')
       if (!userInput) continue;
 
       if (userInput.startsWith('/')) {
+        if (userInput.startsWith('/find-skill ')) {
+          const query = userInput.slice('/find-skill '.length).trim();
+          await handleFindSkill(query, session);
+          continue;
+        }
+
+        if (userInput.startsWith('/install-skill ')) {
+          const query = userInput.slice('/install-skill '.length).trim();
+          await handleInstallSkill(query, session);
+          continue;
+        }
+
         const result = await handleCommand(userInput, session, config);
         if (result === 'exit') break;
+        continue;
+      }
+
+      const skillIntent = parseSkillIntent(userInput);
+      if (skillIntent) {
+        addMessage(session, 'user', userInput);
+        if (skillIntent.action === 'install') {
+          await handleInstallSkill(skillIntent.query, session);
+        } else {
+          await handleFindSkill(skillIntent.query, session);
+        }
         continue;
       }
 
@@ -150,6 +186,29 @@ export const chatCommand = new Command('chat')
         saveSession(session);
 
         console.log(chalk.blue('Claudy: ') + reply + '\n');
+
+        // Auto-detectar URLs SKILL.md en la respuesta y ofrecer instalarlas
+        const urls = findSkillUrls(reply);
+        for (const url of urls) {
+          const { confirm } = await inquirer.prompt([
+            {
+              type: 'confirm',
+              name: 'confirm',
+              message: `🔌 Detecté un skill: ${url}\n  ¿Instalar?`,
+              default: true,
+            },
+          ]);
+          if (confirm) {
+            try {
+              const installed = await installSkillFromUrl(url);
+              console.log(
+                chalk.green(`✓ Skill "${installed.name}" instalado en ${installed.path}\n`)
+              );
+            } catch (err: any) {
+              console.log(chalk.red(`✗ Error instalando: ${err.message}\n`));
+            }
+          }
+        }
       } catch (error: any) {
         process.stdout.write('\r' + ' '.repeat(20) + '\r');
         console.log(chalk.red('✗ Error: ' + error.message) + '\n');
@@ -315,6 +374,8 @@ async function handleCommand(
       console.log(chalk.gray('  /read <ruta>                - Leer archivo (lo añade al contexto)'));
       console.log(chalk.gray('  /write <ruta>\\n<contenido>  - Escribir archivo'));
       console.log(chalk.gray('  /exec <comando>             - Ejecutar shell command'));
+      console.log(chalk.gray('  /find-skill <tema>          - Buscar skills en internet'));
+      console.log(chalk.gray('  /install-skill <tema>       - Instalar el mejor skill encontrado'));
       console.log(chalk.gray('  /tools                      - Ver estado de tools'));
       console.log(chalk.gray('  /history                    - Info de sesión'));
       console.log(chalk.gray('  /help                       - Esta ayuda\n'));
@@ -328,4 +389,93 @@ async function handleCommand(
 
 function tick(value: boolean): string {
   return value ? chalk.green('✓') : chalk.red('✗');
+}
+
+async function handleFindSkill(query: string, session: Session): Promise<void> {
+  if (!query.trim()) {
+    return;
+  }
+
+  process.stdout.write(chalk.cyan('Buscando skills...'));
+
+  try {
+    const skills = await searchRemoteSkills(query, 5);
+    process.stdout.write('\r' + ' '.repeat(24) + '\r');
+
+    if (skills.length === 0) {
+      const message = `No encontre skills en internet para "${query}".`;
+      console.log(chalk.blue('Claudy: ') + message + '\n');
+      addMessage(session, 'assistant', message);
+      saveSession(session);
+      return;
+    }
+
+    const message = [
+      `Encontre estos skills en internet para "${query}":`,
+      ...skills.map(
+        (skill, index) =>
+          `${index + 1}. ${skill.name} (${skill.source}/${skill.skillId}) - ${
+            skill.installs || 0
+          } installs`
+      ),
+      '',
+      `Para instalar el mejor resultado: /install-skill ${query}`,
+    ].join('\n');
+
+    console.log(chalk.blue('Claudy: ') + message + '\n');
+    addMessage(session, 'assistant', message);
+    saveSession(session);
+  } catch (error: any) {
+    process.stdout.write('\r' + ' '.repeat(24) + '\r');
+    const message = `No pude buscar skills: ${error.message || String(error)}`;
+    console.log(chalk.red('Error: ') + message + '\n');
+    addMessage(session, 'assistant', message);
+    saveSession(session);
+  }
+}
+
+async function handleInstallSkill(query: string, session: Session): Promise<void> {
+  if (!query.trim()) {
+    return;
+  }
+
+  process.stdout.write(chalk.cyan('Buscando e instalando skill...'));
+
+  try {
+    const result = await installBestSkillForQuery(query);
+    process.stdout.write('\r' + ' '.repeat(36) + '\r');
+
+    const alternatives = result.candidates
+      .filter((candidate) => candidate.id !== result.remote.id)
+      .slice(0, 3)
+      .map(
+        (candidate) =>
+          `- ${candidate.name} (${candidate.source}/${candidate.skillId}, ${
+            candidate.installs || 0
+          } installs)`
+      );
+
+    const message = [
+      `Skill instalado: ${result.installed.name}`,
+      `Fuente: ${result.remote.source}/${result.remote.skillId}`,
+      `Installs reportados: ${result.remote.installs || 0}`,
+      `Archivo: ${result.installed.path}`,
+      `README actualizado: ${result.installed.readmePath}`,
+      '',
+      'Ya queda disponible para futuras respuestas de Claudy cuando el mensaje sea relevante.',
+      alternatives.length ? '\nOtros candidatos considerados:\n' + alternatives.join('\n') : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    console.log(chalk.blue('Claudy: ') + message + '\n');
+    addMessage(session, 'assistant', message);
+    saveSession(session);
+  } catch (error: any) {
+    process.stdout.write('\r' + ' '.repeat(36) + '\r');
+    const message = `No pude instalar la skill: ${error.message || String(error)}`;
+    console.log(chalk.red('Error: ') + message + '\n');
+    addMessage(session, 'assistant', message);
+    saveSession(session);
+  }
 }
