@@ -367,11 +367,11 @@ function compactAsrError(error: unknown, stdout: string, stderr: string): string
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .slice(-8)
+    .slice(-20)
     .join("\n");
 
   if (!tail) return message;
-  return `${message}\n\nDetalle ASR:\n${tail}`;
+  return `${message}\n\nDetalle ASR (ultimas 20 lineas):\n${tail}`;
 }
 
 async function transcribeAudio(localPath: string): Promise<string> {

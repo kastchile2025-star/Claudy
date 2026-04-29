@@ -226,6 +226,7 @@ export async function listModels(): Promise<ModelInfo[]> {
     const models = providers.flatMap((provider) => {
       const providerID = provider.id;
       if (!providerID || !provider.models) return [];
+      if (providerID !== "opencode-go") return [];
       if (connected && !connected.has(providerID)) return [];
 
       return Object.entries(provider.models).map(([modelID, model]) => ({
