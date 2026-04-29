@@ -1,26 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Session, ModelInfo, ClaudyConfig } from "../types";
 
-// Detectar si estamos en GitHub Codespaces
-const isCodespace = window.location.hostname.includes("github.dev");
-const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-
-// En Codespaces, el backend esta en la misma URL base pero con puerto 3001
-// Ejemplo: frontend = xxx-3000.github.dev, backend = xxx-3001.github.dev
-let API_URL = '';
-let WS_URL = `ws://${window.location.host}/ws`;
-
-if (isCodespace) {
-  const currentUrl = new URL(window.location.href);
-  const hostname = currentUrl.hostname;
-  // Reemplazar -3000. con -3001. en el hostname
-  const backendHostname = hostname.replace('-3000.', '-3001.');
-  API_URL = `https://${backendHostname}`;
-  WS_URL = `wss://${backendHostname}/ws`;
-} else if (isLocalhost) {
-  API_URL = "http://127.0.0.1:3001";
-  WS_URL = "ws://127.0.0.1:3001/ws";
-}
+const API_URL = import.meta.env.VITE_API_URL || "";
+const WS_URL =
+  import.meta.env.VITE_WS_URL ||
+  `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws`;
 
 function waitForSocketOpen(ws: WebSocket): Promise<void> {
   if (ws.readyState === WebSocket.OPEN) return Promise.resolve();
@@ -70,14 +54,30 @@ export function useChat() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [currentModel, setCurrentModel] = useState("");
   const [config, setConfig] = useState<ClaudyConfig | null>(null);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const shouldReconnectRef = useRef(true);
   const currentContentRef = useRef("");
 
   const loadSessions = useCallback(async () => {
-    const res = await fetch(`${API_URL}/api/sessions`);
-    const data = await res.json();
-    setSessions(data);
+    try {
+      const res = await fetch(`${API_URL}/api/sessions`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const nextSessions = Array.isArray(data) ? data : [];
+      setSessions(nextSessions);
+      setCurrentSessionId((current) => current || nextSessions[0]?.id || null);
+      setConnectionError(null);
+    } catch (error) {
+      setConnectionError(
+        `No pude cargar conversaciones desde el backend (${API_URL || "mismo origen"}): ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    } finally {
+      setSessionsLoaded(true);
+    }
   }, []);
 
   const loadConfig = useCallback(async () => {
@@ -125,13 +125,17 @@ export function useChat() {
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
-    ws.onopen = () => console.log("[ws] connected");
+    ws.onopen = () => {
+      console.log("[ws] connected");
+      setConnectionError(null);
+    };
     ws.onerror = () => console.error("[ws] connection error");
     ws.onclose = () => {
       if (wsRef.current === ws) {
         wsRef.current = null;
       }
       if (shouldReconnectRef.current) {
+        setConnectionError("WebSocket desconectado. Reintentando conexion con el backend...");
         window.setTimeout(connectWebSocket, 3000);
       }
     };
@@ -160,6 +164,7 @@ export function useChat() {
         });
       } else if (data.type === "done") {
         setIsLoading(false);
+        setConnectionError(null);
         currentContentRef.current = "";
         loadSessions();
       } else if (data.type === "error") {
@@ -288,6 +293,8 @@ export function useChat() {
     models,
     currentModel,
     config,
+    sessionsLoaded,
+    connectionError,
     createSession,
     selectSession,
     deleteSession,

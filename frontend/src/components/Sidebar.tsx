@@ -7,6 +7,8 @@ interface SidebarProps {
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
   onCreateSession: () => void;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
 export function Sidebar({
@@ -15,6 +17,8 @@ export function Sidebar({
   onSelectSession,
   onDeleteSession,
   onCreateSession,
+  isLoading = false,
+  error = null,
 }: SidebarProps) {
   return (
     <div className="flex flex-col h-full w-72">
@@ -55,7 +59,19 @@ export function Sidebar({
           </div>
         ))}
 
-        {sessions.length === 0 && (
+        {error && (
+          <div className="mx-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {error}
+          </div>
+        )}
+
+        {isLoading && sessions.length === 0 && (
+          <div className="text-center text-gray-400 text-sm py-8">
+            Cargando conversaciones...
+          </div>
+        )}
+
+        {!isLoading && !error && sessions.length === 0 && (
           <div className="text-center text-gray-400 text-sm py-8">
             No hay conversaciones aun
           </div>

@@ -24,6 +24,8 @@ function App() {
           onSelectSession={chat.selectSession}
           onDeleteSession={chat.deleteSession}
           onCreateSession={chat.createSession}
+          isLoading={!chat.sessionsLoaded}
+          error={chat.connectionError}
         />
       </div>
 
