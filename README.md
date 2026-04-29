@@ -40,6 +40,7 @@ La forma mas facil de probar Claudy es en un **GitHub Codespace**. No necesitas 
 Scripts utiles en Codespaces:
 
 ```bash
+bash scripts/codespace-install-opencode.sh
 bash scripts/codespace-opencode.sh
 bash scripts/codespace-backend.sh
 bash scripts/codespace-frontend.sh
@@ -49,6 +50,12 @@ O para levantar todo en segundo plano con logs:
 
 ```bash
 bash scripts/codespace-all.sh
+```
+
+Para detener servicios en segundo plano:
+
+```bash
+bash scripts/codespace-stop.sh
 ```
 
 ## Opcion 2: Instalacion Local
