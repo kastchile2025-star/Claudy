@@ -2,9 +2,29 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { Session, ModelInfo, ClaudyConfig } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
-const WS_URL =
-  import.meta.env.VITE_WS_URL ||
-  `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws`;
+
+function resolveWebSocketUrl(): string {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  const { hostname, host } = window.location;
+
+  if (hostname === "127.0.0.1" || hostname === "localhost") {
+    return `${protocol}://${hostname}:3001/ws`;
+  }
+
+  if (host.includes("-3000.")) {
+    return `${protocol}://${host.replace("-3000.", "-3001.")}/ws`;
+  }
+
+  if (host.startsWith("3000-")) {
+    return `${protocol}://${host.replace(/^3000-/, "3001-")}/ws`;
+  }
+
+  return `${protocol}://${host}/ws`;
+}
+
+const WS_URL = resolveWebSocketUrl();
 
 function waitForSocketOpen(ws: WebSocket): Promise<void> {
   if (ws.readyState === WebSocket.OPEN) return Promise.resolve();
