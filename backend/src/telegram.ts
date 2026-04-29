@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { extname, join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
 import { getConfig } from "./config";
@@ -43,8 +43,9 @@ interface TelegramState {
 const STATE_PATH = join(homedir(), ".claudy", "telegram-sessions.json");
 const AUDIO_DIR = join(homedir(), ".claudy", "telegram-audio");
 const TELEGRAM_LIMIT = 4096;
-const ASR_TIMEOUT_MS = Number(process.env.CLAUDY_ASR_TIMEOUT_MS || 120_000);
+const ASR_TIMEOUT_MS = Number(process.env.CLAUDY_ASR_TIMEOUT_MS || 600_000);
 const MAX_AUDIO_BYTES = Number(process.env.CLAUDY_TELEGRAM_AUDIO_MAX_BYTES || 25 * 1024 * 1024);
+const FFMPEG_BIN = process.env.CLAUDY_FFMPEG || "ffmpeg";
 
 const execFileAsync = promisify(execFile);
 
@@ -235,6 +236,55 @@ function outputToString(value: unknown): string {
   return String(value);
 }
 
+function seconds(ms: number): number {
+  return Math.ceil(ms / 1000);
+}
+
+function needsAudioNormalization(filePath: string): boolean {
+  return [".oga", ".ogg", ".opus", ".webm"].includes(extname(filePath).toLowerCase());
+}
+
+async function normalizeAudioForAsr(localPath: string): Promise<string> {
+  if (!needsAudioNormalization(localPath)) return localPath;
+
+  const targetPath = join(
+    AUDIO_DIR,
+    `${basename(localPath, extname(localPath))}-asr.wav`
+  );
+
+  try {
+    await execFileAsync(
+      FFMPEG_BIN,
+      [
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        localPath,
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        targetPath,
+      ],
+      {
+        timeout: 60_000,
+        windowsHide: true,
+        maxBuffer: 1024 * 1024,
+      }
+    );
+    return targetPath;
+  } catch (error) {
+    console.warn(
+      "[telegram] No pude normalizar audio con ffmpeg, usando original:",
+      error instanceof Error ? error.message : error
+    );
+    return localPath;
+  }
+}
+
 function extractJsonText(value: unknown): string | null {
   if (!value) return null;
   if (typeof value === "string") return value.trim() || null;
@@ -303,7 +353,15 @@ function extractTranscription(rawOutput: string): string {
 }
 
 function compactAsrError(error: unknown, stdout: string, stderr: string): string {
-  const message = error instanceof Error ? error.message : String(error);
+  const execError = error as { killed?: boolean; signal?: string };
+  const message =
+    execError.killed || execError.signal === "SIGTERM"
+      ? `La transcripcion tardo mas de ${seconds(
+          ASR_TIMEOUT_MS
+        )} segundos y fue cancelada. Puedes subir CLAUDY_ASR_TIMEOUT_MS si el audio es largo o la demo ASR esta lenta.`
+      : error instanceof Error
+      ? error.message
+      : String(error);
   const raw = [stderr, stdout].filter(Boolean).join("\n").trim();
   const tail = raw
     .split(/\r?\n/)
@@ -326,11 +384,12 @@ async function transcribeAudio(localPath: string): Promise<string> {
 
   let stdout = "";
   let stderr = "";
+  const inputPath = await normalizeAudioForAsr(localPath);
 
   try {
     const result = await execFileAsync(
       process.env.CLAUDY_PYTHON || "python",
-      [scriptPath, "-f", localPath],
+      [scriptPath, "-f", inputPath],
       {
         timeout: ASR_TIMEOUT_MS,
         windowsHide: true,
@@ -353,7 +412,7 @@ async function transcribeAudio(localPath: string): Promise<string> {
   const text = extractTranscription([stdout, stderr].join("\n"));
   if (!text) {
     throw new Error(
-      "La skill qwen-asr termino, pero no devolvio una transcripcion legible. Revisa que el script imprima solo el texto o una linea tipo `transcription: ...`."
+      "La skill qwen-asr termino, pero no devolvio una transcripcion legible. Revisa que el script imprima solo el texto o una linea tipo `transcription: ...`. Si ves solo `Audio file:` y `Loaded as API:`, normalmente la llamada al servicio ASR no alcanzo a devolver resultado."
     );
   }
 
@@ -380,6 +439,21 @@ async function sendTyping(chatId: number) {
   } catch {
     // Typing indicators are nice-to-have; message delivery still matters.
   }
+}
+
+function startTypingLoop(chatId: number): () => void {
+  let stopped = false;
+
+  void (async () => {
+    while (!stopped) {
+      await sendTyping(chatId);
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+    }
+  })();
+
+  return () => {
+    stopped = true;
+  };
 }
 
 function getOrCreateSession(chatId: number): string {
@@ -412,7 +486,7 @@ async function handleMessage(message: TelegramMessage) {
 
   const audio = getIncomingAudio(message);
   if (audio) {
-    await sendTyping(chatId);
+    const stopTyping = startTypingLoop(chatId);
 
     try {
       const localPath = await downloadTelegramAudio(audio, chatId);
@@ -453,6 +527,8 @@ async function handleMessage(message: TelegramMessage) {
         }`,
         message.message_id
       );
+    } finally {
+      stopTyping();
     }
     return;
   }

@@ -167,11 +167,14 @@ Tambien puedes configurar variables de entorno:
 TELEGRAM_BOT_ENABLED=true
 TELEGRAM_BOT_TOKEN=123456:ABC...
 TELEGRAM_ALLOWED_CHAT_IDS=123456789
-CLAUDY_ASR_TIMEOUT_MS=120000
+CLAUDY_ASR_TIMEOUT_MS=600000
+CLAUDY_FFMPEG=ffmpeg
 CLAUDY_TELEGRAM_AUDIO_MAX_BYTES=26214400
 ```
 
 > Importante: no subas el token al repositorio. Claudy lo guarda localmente en `~/.claudy/config.json`.
+
+Para audios de Telegram, Claudy intenta convertir notas de voz `.oga/.opus` a WAV mono 16 kHz con `ffmpeg` antes de llamar la skill `qwen-asr`. Si la transcripcion tarda mucho, aumenta `CLAUDY_ASR_TIMEOUT_MS`.
 
 ## Configuracion
 

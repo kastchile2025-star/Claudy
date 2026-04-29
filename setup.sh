@@ -19,7 +19,7 @@ fi
 
 cd "$PROJECT_DIR"
 
-echo "[1/6] Instalando Bun (si no esta)..."
+echo "[1/7] Instalando Bun (si no esta)..."
 if ! command -v bun &> /dev/null; then
     curl -fsSL https://bun.sh/install | bash
 fi
@@ -28,17 +28,30 @@ export PATH="$HOME/.bun/bin:$PATH"
 echo "   Bun version: $(bun --version)"
 echo ""
 
-echo "[2/6] Instalando dependencias del backend..."
+echo "[2/7] Instalando FFmpeg (si no esta)..."
+if ! command -v ffmpeg &> /dev/null; then
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+    else
+        echo "   FFmpeg no encontrado. Instalalo manualmente para transcribir audios de Telegram."
+    fi
+else
+    echo "   FFmpeg version: $(ffmpeg -version | head -n 1)"
+fi
+echo ""
+
+echo "[3/7] Instalando dependencias del backend..."
 cd "$PROJECT_DIR/backend"
 bun install
 
 echo ""
-echo "[3/6] Instalando dependencias del frontend..."
+echo "[4/7] Instalando dependencias del frontend..."
 cd "$PROJECT_DIR/frontend"
 bun install
 
 echo ""
-echo "[4/6] Configurando OpenCode..."
+echo "[5/7] Configurando OpenCode..."
 mkdir -p ~/.claudy
 cat > ~/.claudy/config.json << 'EOF'
 {
@@ -60,14 +73,14 @@ EOF
 echo "   Configuracion creada en ~/.claudy/config.json"
 echo ""
 
-echo "[5/6] Iniciando backend (puerto 3001)..."
+echo "[6/7] Iniciando backend (puerto 3001)..."
 cd "$PROJECT_DIR/backend"
 nohup bun run src/server.ts > /tmp/claudy-backend.log 2>&1 &
 echo "   PID: $!"
 echo "   Logs: tail -f /tmp/claudy-backend.log"
 
 echo ""
-echo "[6/6] Iniciando frontend (puerto 3000)..."
+echo "[7/7] Iniciando frontend (puerto 3000)..."
 cd "$PROJECT_DIR/frontend"
 nohup bun run dev > /tmp/claudy-frontend.log 2>&1 &
 echo "   PID: $!"
