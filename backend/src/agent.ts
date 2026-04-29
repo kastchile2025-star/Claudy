@@ -6,7 +6,7 @@ import { runLocalToolCommand, toolsSystemContext } from "./toolrunner";
 import type { Message, Session } from "./sessions/types";
 
 const MAX_TOOL_ITERATIONS = 3;
-const TOOL_INTENT_RE = /^\s*\/(browse|read)\s+(\S.*)$/im;
+const TOOL_INTENT_RE = /^\s*\/(browse|read|exec)\s+(\S.*)$/im;
 
 async function expandToolIntents(
   session: Session,

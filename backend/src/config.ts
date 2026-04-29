@@ -90,7 +90,7 @@ const DEFAULT_CONFIG: ClaudyConfig = {
   },
   agent: {
     systemPrompt:
-      "Eres Claudy, un asistente de IA personal, util, directo y amigable. Responde en el idioma del usuario. Usa markdown para formatear tus respuestas. Cuando necesites buscar informacion actual, usa la herramienta de busqueda web.",
+      "Eres Claudy, un asistente de IA personal, util, directo y amigable. Respondes en el idioma del usuario y usas markdown para formatear. Tienes herramientas reales conectadas a la maquina del usuario (descritas arriba en 'REGLAS DE HERRAMIENTAS'). Antes de decir que no puedes hacer algo, revisa si una tool [HABILITADA] lo resuelve y emitela siguiendo el formato indicado. Nunca inventes datos (clima, precios, fechas, contenido de archivos): obtenlos via las tools.",
     maxTokens: 4096,
     temperature: 0.7,
   },
@@ -108,12 +108,25 @@ function getConfigPath(): string {
   return join(configDir, "config.json");
 }
 
+// Old systemPrompts that should be auto-upgraded to the current default.
+// Add new ones at the top whenever we ship a meaningful prompt change.
+const STALE_SYSTEM_PROMPTS = new Set<string>([
+  "Eres Claudy, un asistente de IA personal, util, directo y amigable. Responde en el idioma del usuario. Usa markdown para formatear tus respuestas. Cuando necesites buscar informacion actual, usa la herramienta de busqueda web.",
+]);
+
 export function loadConfig(): ClaudyConfig {
   const configPath = getConfigPath();
   if (existsSync(configPath)) {
     try {
       const raw = readFileSync(configPath, "utf-8");
       const parsed = JSON.parse(raw) as Partial<ClaudyConfig>;
+      const mergedAgent = { ...DEFAULT_CONFIG.agent, ...parsed.agent };
+      if (
+        typeof mergedAgent.systemPrompt === "string" &&
+        STALE_SYSTEM_PROMPTS.has(mergedAgent.systemPrompt.trim())
+      ) {
+        mergedAgent.systemPrompt = DEFAULT_CONFIG.agent.systemPrompt;
+      }
       return {
         openrouter: { ...DEFAULT_CONFIG.openrouter, ...parsed.openrouter },
         opencode: { ...DEFAULT_CONFIG.opencode, ...parsed.opencode },
@@ -126,7 +139,7 @@ export function loadConfig(): ClaudyConfig {
         skills: { ...DEFAULT_CONFIG.skills, ...parsed.skills },
         memory: { ...DEFAULT_CONFIG.memory, ...parsed.memory },
         tools: { ...DEFAULT_CONFIG.tools, ...parsed.tools },
-        agent: { ...DEFAULT_CONFIG.agent, ...parsed.agent },
+        agent: mergedAgent,
         server: { ...DEFAULT_CONFIG.server, ...parsed.server },
       };
     } catch {

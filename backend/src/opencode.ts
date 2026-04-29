@@ -167,8 +167,10 @@ export async function sendMessageToOpenCode(
 ): Promise<string> {
   const config = getConfig();
   const parsedModel = parseModel(model || config.opencode.defaultModel);
+  // Tools/skills context goes FIRST so the model treats it as primary instruction,
+  // not an optional addendum after the personality prompt.
   const system = skillContext
-    ? `${config.agent.systemPrompt}\n\n${skillContext}`
+    ? `${skillContext}\n\n---\n\n${config.agent.systemPrompt}`
     : config.agent.systemPrompt;
 
   const send = async (timeoutMs?: number) => {

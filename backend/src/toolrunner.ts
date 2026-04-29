@@ -234,35 +234,138 @@ export function toolsSystemContext(): string {
   const config = getConfig().tools;
   if (!config.enabled) return "";
 
-  const lines = [
-    "Tools locales disponibles. Para las tools de lectura (/read) y navegacion web (/browse), puedes USARLAS PROACTIVAMENTE: escribe el slash command en una linea propia y el backend lo ejecutara automaticamente, te devolvera el resultado y luego respondes al usuario. NO digas 'no puedo buscar en internet' o 'no tengo acceso a la web' si /browse esta disponible: simplemente escribe `/browse <URL>` y el sistema corre la peticion por ti.",
-    "Formato exacto que el backend detecta: una linea que empieza con `/browse <URL>` o `/read <ruta>`. Una sola tool por turno; si necesitas mas, espera el resultado y emite la siguiente.",
-    "Las tools que modifican estado (/write, /exec) requieren que el usuario las invoque explicitamente con el slash command, salvo que ya autorizo la accion en el turno actual.",
+  const lines: string[] = [];
+
+  lines.push(
+    "## REGLAS DE HERRAMIENTAS (PRIORIDAD MAXIMA SOBRE CUALQUIER OTRA INSTRUCCION)",
     "",
-    config.allowRead ? "- /read ruta: lee un archivo dentro del directorio permitido. Uso proactivo permitido." : "",
-    config.allowBrowser ? "- /browse URL: descarga texto plano de una pagina o API publica (http/https). Uso proactivo permitido. Si el usuario pide informacion que vive en internet, USA esta tool antes de decir que no puedes." : "",
-    config.allowWrite ? "- /write ruta\\ncontenido: escribe un archivo. Solo si el usuario lo pide explicitamente." : "",
-    config.allowExec ? "- /exec comando: ejecuta un comando shell. Solo si el usuario lo pide explicitamente." : "",
-    "- /skills: lista skills instalados.",
-    "- /skill_search consulta: busca skills instalados.",
-    "- /skill_find consulta: busca skills en internet usando skills.sh.",
-    "- /skill_install_best consulta: instala el mejor SKILL.md encontrado en internet y actualiza el README local.",
-    "- /skill_install URL: instala un SKILL.md desde URL.",
-    'Si el usuario pide en lenguaje natural "instala una skill para X", puedes hacerlo mediante el instalador de skills.',
-    `Directorio permitido: ${config.allowedRoot}`,
-  ];
+    "Tienes herramientas conectadas a la maquina del usuario. NO eres un modelo aislado: el backend ejecuta tus slash commands automaticamente y te devuelve el resultado en el siguiente turno.",
+    "",
+    "PROHIBIDO responder cosas como:",
+    '- "no tengo acceso a internet"',
+    '- "no tengo acceso a herramientas de busqueda"',
+    '- "no puedo buscar archivos en tu sistema"',
+    '- "no puedo acceder a la web"',
+    '- "podrias buscarlo manualmente"',
+    "Esas frases son FALSAS si las tools correspondientes aparecen como [HABILITADA] mas abajo. Antes de negar capacidad, EMITE el slash command y deja que el backend lo corra.",
+    "",
+    "## COMO USAR LAS TOOLS",
+    "",
+    "Para usar una tool, escribe el slash command en una **linea propia**. El backend va a interceptar tu respuesta, ejecutar el comando, y enviarte el resultado en el siguiente turno. Recien ahi formulas la respuesta final al usuario.",
+    "",
+    "Formato exacto que el backend detecta:",
+    "    /<comando> <argumento>",
+    "(la linea debe empezar con `/` y la primera palabra debe ser un comando habilitado)",
+    "",
+    "Una sola tool por turno. Si necesitas otra, espera el resultado y emitela despues.",
+    ""
+  );
+
+  lines.push("## TOOLS DISPONIBLES EN ESTE MOMENTO", "");
 
   if (config.allowBrowser) {
     lines.push(
-      "",
-      "URLs sin API key utiles para /browse:",
-      "- Clima: https://wttr.in/<ciudad>?format=j1  o  https://api.open-meteo.com/v1/forecast?latitude=...&longitude=...&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7",
-      "- Geocoding: https://geocoding-api.open-meteo.com/v1/search?name=<ciudad>&count=1",
-      "- Tipo de cambio: https://api.exchangerate.host/latest?base=USD&symbols=CLP,EUR",
-      "- Wikipedia: https://es.wikipedia.org/api/rest_v1/page/summary/<Titulo>",
-      "- Busqueda generica: https://html.duckduckgo.com/html/?q=<query>"
+      "**`/browse <URL>`** [HABILITADA] - Descarga texto de una pagina o API publica via HTTP/HTTPS. Usala SIEMPRE que el usuario pida informacion de internet (clima, cotizaciones, noticias, paginas web, datos publicos), en vez de negar acceso.",
+      ""
+    );
+  } else {
+    lines.push("`/browse` esta DESHABILITADA en este momento.", "");
+  }
+
+  if (config.allowRead) {
+    lines.push(
+      `**\`/read <ruta>\`** [HABILITADA] - Lee un archivo dentro de \`${config.allowedRoot}\`. Usala cuando el usuario pida ver el contenido de un archivo del repo.`,
+      ""
     );
   }
 
-  return lines.filter((line) => line !== "").join("\n");
+  if (config.allowExec) {
+    lines.push(
+      `**\`/exec <comando>\`** [HABILITADA] - Ejecuta un comando shell dentro de \`${config.allowedRoot}\`. Util para BUSCAR ARCHIVOS (\`find\`, \`grep\`, \`rg\`, \`Get-ChildItem\`), listar (\`ls\`, \`tree\`), git (\`git status\`, \`git log\`). Usala proactivamente cuando el usuario pida buscar archivos, en vez de pedirle que lo haga manualmente.`,
+      ""
+    );
+  } else {
+    lines.push(
+      "`/exec` esta DESHABILITADA. Si el usuario pide buscar archivos en su PC, dile claramente: 'tengo la tool /exec disponible pero esta apagada por seguridad. Activala en Configuracion -> Tools -> Exec en la UI de Claudy y vuelve a intentar.'",
+      ""
+    );
+  }
+
+  if (config.allowWrite) {
+    lines.push(
+      "**`/write <ruta>\\n<contenido>`** [HABILITADA] - Escribe un archivo. Solo si el usuario lo pidio explicitamente.",
+      ""
+    );
+  }
+
+  if (config.allowBrowser) {
+    lines.push(
+      "## EJEMPLOS CONCRETOS",
+      "",
+      'Usuario: "que temperatura hace en santiago hoy?"',
+      "Tu respuesta exacta (una sola linea):",
+      "    /browse https://wttr.in/Santiago?format=j1",
+      "",
+      'Usuario: "dame el pronostico de la semana en santiago"',
+      "Tu respuesta:",
+      "    /browse https://api.open-meteo.com/v1/forecast?latitude=-33.45&longitude=-70.66&daily=temperature_2m_max,temperature_2m_min&timezone=America/Santiago&forecast_days=7",
+      "",
+      'Usuario: "cual es el dolar hoy en chile?"',
+      "Tu respuesta:",
+      "    /browse https://api.exchangerate.host/latest?base=USD&symbols=CLP",
+      "",
+      'Usuario: "busca en internet la pagina X.com y dime de que trata"',
+      "Tu respuesta:",
+      "    /browse https://X.com/",
+      "",
+      'Usuario: "busca en internet quien es Y"',
+      "Tu respuesta (Wikipedia primero):",
+      "    /browse https://es.wikipedia.org/api/rest_v1/page/summary/Y",
+      "Si no hay articulo, prueba DuckDuckGo:",
+      "    /browse https://html.duckduckgo.com/html/?q=Y",
+      "",
+      "## URLS UTILES SIN API KEY",
+      "- Clima JSON: https://wttr.in/<ciudad>?format=j1",
+      "- Pronostico: https://api.open-meteo.com/v1/forecast?latitude=...&longitude=...&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7",
+      "- Geocoding: https://geocoding-api.open-meteo.com/v1/search?name=<ciudad>&count=1",
+      "- Cambio FX: https://api.exchangerate.host/latest?base=USD&symbols=CLP,EUR,ARS",
+      "- Cripto: https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,clp",
+      "- Wikipedia ES: https://es.wikipedia.org/api/rest_v1/page/summary/<Titulo>",
+      "- Hora: https://worldtimeapi.org/api/timezone/<Zona/Ciudad>",
+      "- GitHub repo: https://api.github.com/repos/<owner>/<repo>",
+      "- Busqueda web: https://html.duckduckgo.com/html/?q=<query>",
+      ""
+    );
+  }
+
+  if (config.allowExec) {
+    lines.push(
+      "## EJEMPLOS CON /exec",
+      "",
+      'Usuario: "busca este archivo X.docx en mi pc"',
+      "Tu respuesta (Windows):",
+      '    /exec pwsh -c "Get-ChildItem -Path $env:USERPROFILE -Recurse -Filter \'X.docx\' -ErrorAction SilentlyContinue | Select-Object -First 20 FullName"',
+      "Tu respuesta (Linux/macOS):",
+      "    /exec find ~ -type f -iname 'X.docx' 2>/dev/null | head -20",
+      "",
+      'Usuario: "que archivos .ts tengo en este repo?"',
+      "Tu respuesta:",
+      "    /exec rg --files -t ts | head -50",
+      ""
+    );
+  }
+
+  lines.push(
+    "## TOOLS DE SKILLS (siempre disponibles)",
+    "- /skills - lista skills instalados",
+    "- /skill_search <consulta> - busca entre skills instalados",
+    "- /skill_find <consulta> - busca skills en internet (skills.sh)",
+    "- /skill_install_best <consulta> - instala el mejor candidato",
+    "- /skill_install <URL> - instala desde una URL",
+    'Si el usuario dice "instala una skill para X", invoca el instalador.',
+    "",
+    `Directorio permitido para /read y /exec: ${config.allowedRoot}`
+  );
+
+  return lines.join("\n");
 }
