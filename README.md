@@ -7,6 +7,7 @@
 - Chat web en tiempo real
 - Integracion con **OpenCode** via servidor local
 - Canal opcional de **Telegram Bot** con polling local
+- Transcripcion de audios de Telegram usando la skill local `qwen-asr`
 - Tools locales por comandos slash: `/read`, `/write`, `/exec`, `/browse`
 - Sistema de **skills** en Markdown (`SKILL.md`)
 - Memoria vectorial local en `~/.claudy/memory.json`
@@ -151,6 +152,7 @@ La disponibilidad depende del navegador y sus permisos de microfono. En Chrome/E
 ## Telegram
 
 Claudy puede responder mensajes desde un bot de Telegram usando polling local.
+Tambien puede recibir notas de voz, audios o documentos de audio y transcribirlos con la skill local `qwen-asr` si existe en `~/.claudy/skills/qwen-asr/scripts/main.py`.
 
 1. Crea un bot con BotFather y guarda el token de forma privada.
 2. Abre Configuracion en Claudy.
@@ -165,6 +167,8 @@ Tambien puedes configurar variables de entorno:
 TELEGRAM_BOT_ENABLED=true
 TELEGRAM_BOT_TOKEN=123456:ABC...
 TELEGRAM_ALLOWED_CHAT_IDS=123456789
+CLAUDY_ASR_TIMEOUT_MS=120000
+CLAUDY_TELEGRAM_AUDIO_MAX_BYTES=26214400
 ```
 
 > Importante: no subas el token al repositorio. Claudy lo guarda localmente en `~/.claudy/config.json`.
@@ -250,8 +254,8 @@ claudy/
 |   |   |-- sessions/        # Almacenamiento de sesiones
 |   |   |-- tools/           # Herramientas legacy
 |-- frontend/
+|   |-- index.html           # Entrada Vite
 |   |-- src/                 # React app (Vite)
-|   |-- public/index.html    # Version standalone HTML
 |-- skills/
 |   |-- find-skills/
 |   |   |-- SKILL.md          # Skill base para descubrir habilidades
